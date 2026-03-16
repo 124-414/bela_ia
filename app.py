@@ -13,10 +13,10 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# 🔑 Cliente OpenAI
+# 🔑 OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# 📦 Inicializar banco
+# 📦 Banco
 init_db()
 
 
@@ -36,26 +36,51 @@ def chat():
         return jsonify({"response": "Mensagem inválida."})
 
     msg = data["message"]
-
     save("user", msg)
 
-    # 🖼 Imagem
-    if msg.startswith("imagem:"):
-        prompt = msg.replace("imagem:", "").strip()
-        url = create_image(prompt)
+    texto = msg.lower()
 
-        reply = f"<img src='{url}' width='300'>"
+    # ⏰ HORA
+    if "que horas" in texto or "hora" == texto.strip():
+        agora = datetime.now().strftime("%H:%M:%S")
+        reply = f"Agora são {agora}."
         save("assistant", reply)
-
         return jsonify({"response": reply})
 
-    # 🌍 Google
-    if msg.startswith("google:"):
-        q = msg.replace("google:", "").strip()
-        res = google_search(q)
-        msg = f"Resultados da web:\n{res}"
+    # 📅 DATA
+    if "que dia" in texto or "hoje" in texto:
+        hoje = datetime.now().strftime("%d/%m/%Y")
+        reply = f"Hoje é {hoje}."
+        save("assistant", reply)
+        return jsonify({"response": reply})
 
-    # 🧠 Histórico
+    # 🖼 IMAGEM (automática)
+    if msg.startswith("imagem:") or "criar imagem" in texto or "gerar imagem" in texto:
+
+        if msg.startswith("imagem:"):
+            prompt = msg.replace("imagem:", "").strip()
+        else:
+            prompt = msg
+
+        try:
+            url = create_image(prompt)
+            reply = f"<img src='{url}' width='300'>"
+        except Exception as e:
+            reply = f"Erro ao gerar imagem: {str(e)}"
+
+        save("assistant", reply)
+        return jsonify({"response": reply})
+
+    # 🌍 PESQUISA AUTOMÁTICA NA INTERNET
+    if "pesquise" in texto or "procure" in texto or "buscar" in texto:
+
+        try:
+            res = google_search(msg)
+            msg = f"Resultados da web:\n{res}"
+        except Exception as e:
+            msg = f"Erro na pesquisa: {str(e)}"
+
+    # 🧠 HISTÓRICO
     hist = history()
 
     try:
@@ -74,7 +99,7 @@ def chat():
     return jsonify({"response": reply})
 
 
-# 📂 Upload PDF
+# 📂 UPLOAD PDF
 @app.route("/upload", methods=["POST"])
 def upload():
 
@@ -87,7 +112,7 @@ def upload():
     return jsonify({"text": text})
 
 
-# 🚀 PORTA DO RENDER
+# 🚀 RENDER PORT
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
