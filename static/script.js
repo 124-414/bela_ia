@@ -1,60 +1,65 @@
 const input = document.getElementById("input");
 const messages = document.getElementById("messages");
+const sendBtn = document.getElementById("send");
+const micBtn = document.getElementById("mic");
 
+function sendMessage() {
 
-function send() {
-    console.log("Função send chamada");
-    // aqui vai o código de enviar mensagem
+    const texto = input.value.trim();
+    if (!texto) return;
+
+    // Mensagem do usuário
+    messages.innerHTML += `
+        <div class="linha user">
+            <div class="bolha">${texto}</div>
+        </div>
+    `;
+
+    messages.scrollTop = messages.scrollHeight;
+    input.value = "";
+
+    fetch("/perguntar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: texto })
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        messages.innerHTML += `
+            <div class="linha bot">
+                <div class="bolha">${data.resposta}</div>
+            </div>
+        `;
+
+        messages.scrollTop = messages.scrollHeight;
+    });
 }
 
-function voice() {
-    console.log("Função voice chamada");
-    // aqui vai o código do microfone
-}
+// BOTÃO
+sendBtn.addEventListener("click", sendMessage);
 
-const texto = input.value.trim();
-if(!texto) return;
-
-messages.innerHTML += `
-<div class="linha user">
-<div class="bolha">${texto}</div>
-</div>
-`;
-
-messages.scrollTop = messages.scrollHeight;
-
-input.value = "";
-
-fetch("/perguntar",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-message:texto
-})
-})
-.then(res=>res.json())
-.then(data=>{
-
-messages.innerHTML += `
-<div class="linha bot">
-
-<img class="avatar" src="/static/bela.png">
-
-<div class="bolha bot">${data.resposta}</div>
-
-</div>
-`;
-
-messages.scrollTop = messages.scrollHeight;
-
+// ENTER
+input.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+        sendMessage();
+    }
 });
 
-}
+// MICROFONE
+micBtn.addEventListener("click", function() {
 
-input.addEventListener("keypress",function(e){
-if(e.key==="Enter"){
-enviar();
-}
+    if (!('webkitSpeechRecognition' in window)) {
+        alert("Seu navegador não suporta microfone.");
+        return;
+    }
+
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = "pt-BR";
+
+    recognition.start();
+
+    recognition.onresult = function(event) {
+        input.value = event.results[0][0].transcript;
+    };
 });

@@ -1,38 +1,107 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="pt-BR">
 <head>
+    <meta charset="UTF-8">
+    <title>Chat</title>
 
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
 
-<title>Bela IA</title>
+        .chat {
+            width: 400px;
+            height: 600px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
 
-<link rel="stylesheet" href="/static/style.css">
+        #messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
 
+        .linha {
+            margin: 5px 0;
+            display: flex;
+        }
+
+        .user {
+            justify-content: flex-end;
+        }
+
+        .bot {
+            justify-content: flex-start;
+        }
+
+        .bolha {
+            padding: 8px 12px;
+            border-radius: 15px;
+            max-width: 70%;
+        }
+
+        .user .bolha {
+            background: #0084ff;
+            color: white;
+        }
+
+        .bot .bolha {
+            background: #e4e6eb;
+        }
+
+        .input-area {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+        }
+
+        input {
+            flex: 1;
+            padding: 8px;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+            outline: none;
+        }
+
+        button {
+            margin-left: 5px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            background: #0084ff;
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+    </style>
 </head>
 
 <body>
 
-<div id="chat">
+<div class="chat">
+    <div id="messages"></div>
 
-<div id="messages"></div>
-
-<div id="inputArea">
-
-<input id="input" placeholder="Pergunte algo">
-
-<input type="file" id="pdf">
-
-<button onclick="send()">Enviar</button>
-
-<button onclick="voice()">🎤</button>
-
+    <div class="input-area">
+        <input type="text" id="input" placeholder="Digite sua mensagem...">
+        <button onclick="voice()">🎤</button>
+        <button onclick="send()">Enviar</button>
+    </div>
 </div>
 
-</div>
-
-<script src="{{ url_for('static', filename='script.js') }}"></script>
+<script src="script.js"></script>
 
 </body>
 </html>
