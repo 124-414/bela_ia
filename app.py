@@ -1,40 +1,81 @@
-@app.route("/chat", methods=["POST"])
+import os
+from flask import Flask,request,jsonify,render_template
+from openai import OpenAI
+from dotenv import load_dotenv
+
+from database import init_db,save,history
+from tools_google import google_search
+from tools_pdf import read_pdf
+from tools_image import create_image
+
+load_dotenv()
+
+app=Flask(__name__)
+
+client=OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+init_db()
+
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+@app.route("/chat",methods=["POST"])
 def chat():
 
-    data = request.json
-    user_message = data.get("message")
+    msg=request.json["message"]
 
-    data_atual = datetime.now().strftime("%d/%m/%Y")
-    hora_atual = datetime.now().strftime("%H:%M")
+    save("user",msg)
 
-    memoria.append({
-        "role": "user",
-        "content": user_message
-    })
+    # imagem
+    if msg.startswith("imagem:"):
 
-    resposta = client.responses.create(
+        prompt=msg.replace("imagem:","")
+
+        url=create_image(prompt)
+
+        reply=f"<img src='{url}' width='300'>"
+
+        save("assistant",reply)
+
+        return jsonify({"response":reply})
+
+
+    # google
+    if msg.startswith("google:"):
+
+        q=msg.replace("google:","")
+
+        res=google_search(q)
+
+        msg=f"Resultados da web:\n{res}"
+
+
+    hist=history()
+
+    response=client.responses.create(
         model="gpt-4.1-mini",
-        tools=[{"type": "web_search_preview"}],
-        input=[
-            {
-                "role": "system",
-                "content": f"""
-Você é a Bela IA.
-
-Data atual: {data_atual}
-Hora atual: {hora_atual}
-
-Responda sempre em português.
-"""
-            }
-        ] + memoria
+        input=hist+[{"role":"user","content":msg}]
     )
 
-    reply = resposta.output_text
+    reply=response.output_text
 
-    memoria.append({
-        "role": "assistant",
-        "content": reply
-    })
+    save("assistant",reply)
 
-    return jsonify({"response": reply})
+    return jsonify({"response":reply})
+
+
+@app.route("/upload",methods=["POST"])
+def upload():
+
+    file=request.files["file"]
+
+    text=read_pdf(file)
+
+    return jsonify({"text":text})
+
+
+if __name__=="__main__":
+    app.run(host="0.0.0.0",port=5000)

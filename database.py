@@ -1,38 +1,52 @@
 import sqlite3
-from datetime import datetime
 
-DB_NAME = "chat.db"
+DB="chat.db"
 
+def init_db():
 
-def conectar():
-    return sqlite3.connect(DB_NAME)
+    conn=sqlite3.connect(DB)
+    cur=conn.cursor()
 
-
-def criar_tabelas():
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS memorias (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo TEXT NOT NULL,
-            conteudo TEXT NOT NULL,
-            criado_em TEXT NOT NULL
-        )
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS messages(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    role TEXT,
+    content TEXT
+    )
     """)
 
     conn.commit()
     conn.close()
 
 
-def salvar_memoria(tipo, conteudo):
-    conn = conectar()
-    cursor = conn.cursor()
+def save(role,content):
 
-    cursor.execute("""
-        INSERT INTO memorias (tipo, conteudo, criado_em)
-        VALUES (?, ?, ?)
-    """, (tipo, conteudo, datetime.now().isoformat()))
+    conn=sqlite3.connect(DB)
+    cur=conn.cursor()
+
+    cur.execute(
+    "INSERT INTO messages(role,content) VALUES(?,?)",
+    (role,content)
+    )
 
     conn.commit()
     conn.close()
+
+
+def history(limit=12):
+
+    conn=sqlite3.connect(DB)
+    cur=conn.cursor()
+
+    cur.execute(
+    "SELECT role,content FROM messages ORDER BY id DESC LIMIT ?",
+    (limit,)
+    )
+
+    rows=cur.fetchall()
+
+    conn.close()
+
+    rows.reverse()
+
+    return [{"role":r[0],"content":r[1]} for r in rows]
