@@ -1,28 +1,29 @@
 import os
 from datetime import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# Carrega variáveis do .env (opcional em produção)
+# Carrega variáveis do .env
 load_dotenv()
 
 app = Flask(__name__)
 
-# Configura cliente OpenAI
+# Cliente OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# Página principal
 @app.route("/")
 def home():
-    return "🚀 IA online e funcionando!"
+    return render_template("index.html")
 
+# API do chat
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
         data = request.json
         user_message = data.get("message")
 
-        # 📅 Envia data atual para evitar erro de 2023
         data_atual = datetime.now().strftime("%d/%m/%Y")
 
         resposta = client.chat.completions.create(
@@ -41,7 +42,7 @@ def chat():
         return jsonify({"error": str(e)}), 500
 
 
-# 🔥 IMPORTANTE PARA RENDER
+# Rodar servidor
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
