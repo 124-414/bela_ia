@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
@@ -54,31 +55,35 @@ def chat():
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 🖼 IMAGEM (automática)
+    # 🖼 IMAGEM
     if msg.startswith("imagem:") or "criar imagem" in texto or "gerar imagem" in texto:
-
         if msg.startswith("imagem:"):
             prompt = msg.replace("imagem:", "").strip()
         else:
             prompt = msg
-
         try:
             url = create_image(prompt)
             reply = f"<img src='{url}' width='300'>"
         except Exception as e:
             reply = f"Erro ao gerar imagem: {str(e)}"
-
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 🌍 PESQUISA AUTOMÁTICA NA INTERNET
-    if "pesquise" in texto or "procure" in texto or "buscar" in texto:
+    # 🌍 BUSCA AUTOMÁTICA INTELIGENTE
+    try:
+        res = google_search(msg)
+        if res:
+            msg = f"""
+Use as informações atualizadas da internet abaixo para responder.
 
-        try:
-            res = google_search(msg)
-            msg = f"Resultados da web:\n{res}"
-        except Exception as e:
-            msg = f"Erro na pesquisa: {str(e)}"
+Dados da web:
+{res}
+
+Pergunta:
+{msg}
+"""
+    except:
+        pass
 
     # 🧠 HISTÓRICO
     hist = history()
@@ -86,29 +91,34 @@ def chat():
     try:
         response = client.responses.create(
             model="gpt-4.1-mini",
-            input=hist + [{"role": "user", "content": msg}]
+            input=[
+                {
+                    "role": "system",
+                    "content": "Responda sempre em texto simples. Não use markdown, asteriscos, símbolos especiais ou formatação."
+                }
+            ] + hist + [
+                {"role": "user", "content": msg}
+            ]
         )
 
         reply = response.output_text
+        # 🔥 Limpeza final de caracteres indesejados
+        reply = re.sub(r'[\*_`]', '', reply)
 
     except Exception as e:
         reply = f"Erro na IA: {str(e)}"
 
     save("assistant", reply)
-
     return jsonify({"response": reply})
 
 
 # 📂 UPLOAD PDF
 @app.route("/upload", methods=["POST"])
 def upload():
-
     if "file" not in request.files:
         return jsonify({"text": "Nenhum arquivo enviado."})
-
     file = request.files["file"]
     text = read_pdf(file)
-
     return jsonify({"text": text})
 
 
