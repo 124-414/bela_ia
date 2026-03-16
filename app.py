@@ -17,7 +17,7 @@ app = Flask(__name__)
 # 🔑 OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# 📦 Banco
+# 📦 Banco de dados
 init_db()
 
 
@@ -36,54 +36,59 @@ def chat():
     if not data or "message" not in data:
         return jsonify({"response": "Mensagem inválida."})
 
-    msg = data["message"]
-    save("user", msg)
+    msg_original = data["message"]
+    save("user", msg_original)
 
-    texto = msg.lower()
+    texto = msg_original.lower()
+    msg_final = msg_original
 
     # ⏰ HORA
-    if "que horas" in texto or "hora" == texto.strip():
+    if "que horas" in texto or texto.strip() == "hora":
         agora = datetime.now().strftime("%H:%M:%S")
         reply = f"Agora são {agora}."
         save("assistant", reply)
         return jsonify({"response": reply})
 
     # 📅 DATA
-    if "que dia" in texto or "hoje" in texto:
+    if "que dia" in texto or "hoje" == texto.strip():
         hoje = datetime.now().strftime("%d/%m/%Y")
         reply = f"Hoje é {hoje}."
         save("assistant", reply)
         return jsonify({"response": reply})
 
     # 🖼 IMAGEM
-    if msg.startswith("imagem:") or "criar imagem" in texto or "gerar imagem" in texto:
-        if msg.startswith("imagem:"):
-            prompt = msg.replace("imagem:", "").strip()
+    if msg_original.startswith("imagem:") or "criar imagem" in texto or "gerar imagem" in texto:
+        if msg_original.startswith("imagem:"):
+            prompt = msg_original.replace("imagem:", "").strip()
         else:
-            prompt = msg
+            prompt = msg_original
+
         try:
             url = create_image(prompt)
             reply = f"<img src='{url}' width='300'>"
         except Exception as e:
             reply = f"Erro ao gerar imagem: {str(e)}"
+
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 🌍 BUSCA AUTOMÁTICA INTELIGENTE
+    # 🌍 BUSCA NA INTERNET
     try:
-        res = google_search(msg)
-        if res:
-            msg = f"""
+        res = google_search(msg_original)
+
+        if res and res.strip() != "":
+            msg_final = f"""
 Use as informações atualizadas da internet abaixo para responder.
 
 Dados da web:
 {res}
 
 Pergunta:
-{msg}
+{msg_original}
 """
-    except:
-        pass
+
+    except Exception as e:
+        print("Erro na busca:", e)
 
     # 🧠 HISTÓRICO
     hist = history()
@@ -94,35 +99,40 @@ Pergunta:
             input=[
                 {
                     "role": "system",
-                    "content": "Responda sempre em texto simples. Não use markdown, asteriscos, símbolos especiais ou formatação."
+                    "content": "Responda sempre em texto simples. Não use markdown, asteriscos ou formatação."
                 }
             ] + hist + [
-                {"role": "user", "content": msg}
+                {"role": "user", "content": msg_final}
             ]
         )
 
         reply = response.output_text
-        # 🔥 Limpeza final de caracteres indesejados
+
+        # 🔥 Limpeza extra
         reply = re.sub(r'[\*_`]', '', reply)
 
     except Exception as e:
         reply = f"Erro na IA: {str(e)}"
 
     save("assistant", reply)
+
     return jsonify({"response": reply})
 
 
 # 📂 UPLOAD PDF
 @app.route("/upload", methods=["POST"])
 def upload():
+
     if "file" not in request.files:
         return jsonify({"text": "Nenhum arquivo enviado."})
+
     file = request.files["file"]
     text = read_pdf(file)
+
     return jsonify({"text": text})
 
 
-# 🚀 RENDER PORT
+# 🚀 EXECUÇÃO LOCAL / RENDER
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
