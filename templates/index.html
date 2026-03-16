@@ -1,107 +1,110 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Chat</title>
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f4f4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
+<meta charset="UTF-8">
 
-        .chat {
-            width: 400px;
-            height: 600px;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
+<title>Bela IA</title>
 
-        #messages {
-            flex: 1;
-            padding: 10px;
-            overflow-y: auto;
-        }
+<style>
 
-        .linha {
-            margin: 5px 0;
-            display: flex;
-        }
+body{
+background:#2f3136;
+font-family:Arial;
+color:white;
+}
 
-        .user {
-            justify-content: flex-end;
-        }
+#chat{
+height:70vh;
+overflow:auto;
+padding:20px;
+}
 
-        .bot {
-            justify-content: flex-start;
-        }
+.user{
+color:#4fc3f7;
+margin:10px 0;
+}
 
-        .bolha {
-            padding: 8px 12px;
-            border-radius: 15px;
-            max-width: 70%;
-        }
+.ai{
+color:#a5d6a7;
+margin:10px 0;
+}
 
-        .user .bolha {
-            background: #0084ff;
-            color: white;
-        }
+#box{
+display:flex;
+padding:10px;
+background:#1e1f22;
+}
 
-        .bot .bolha {
-            background: #e4e6eb;
-        }
+#input{
+flex:1;
+padding:10px;
+font-size:16px;
+}
 
-        .input-area {
-            display: flex;
-            padding: 10px;
-            border-top: 1px solid #ddd;
-        }
+button{
+padding:10px;
+background:#00c853;
+color:white;
+border:none;
+cursor:pointer;
+}
 
-        input {
-            flex: 1;
-            padding: 8px;
-            border-radius: 20px;
-            border: 1px solid #ccc;
-            outline: none;
-        }
+</style>
 
-        button {
-            margin-left: 5px;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            background: #0084ff;
-            color: white;
-        }
-
-        button:hover {
-            opacity: 0.8;
-        }
-    </style>
 </head>
 
 <body>
 
-<div class="chat">
-    <div id="messages"></div>
+<div id="chat"></div>
 
-    <div class="input-area">
-        <input type="text" id="input" placeholder="Digite sua mensagem...">
-        <button onclick="voice()">🎤</button>
-        <button onclick="send()">Enviar</button>
-    </div>
+<div id="box">
+
+<input id="input" placeholder="Pergunte algo">
+
+<button onclick="send()">Enviar</button>
+
 </div>
 
-<script src="script.js"></script>
+<script>
+
+async function send(){
+
+let input=document.getElementById("input")
+
+let msg=input.value
+
+if(msg=="") return
+
+let chat=document.getElementById("chat")
+
+chat.innerHTML+=`<div class="user">Você: ${msg}</div>`
+
+input.value=""
+
+let res=await fetch("/chat",{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json"
+},
+
+body:JSON.stringify({
+message:msg
+})
+
+})
+
+let data=await res.json()
+
+chat.innerHTML+=`<div class="ai">Bela: ${data.response}</div>`
+
+chat.scrollTop=chat.scrollHeight
+
+}
+
+</script>
 
 </body>
 </html>

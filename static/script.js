@@ -8,7 +8,6 @@ function sendMessage() {
     const texto = input.value.trim();
     if (!texto) return;
 
-    // Mensagem do usuário
     messages.innerHTML += `
         <div class="linha user">
             <div class="bolha">${texto}</div>
@@ -18,7 +17,7 @@ function sendMessage() {
     messages.scrollTop = messages.scrollHeight;
     input.value = "";
 
-    fetch("/perguntar", {
+    fetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: texto })
@@ -28,7 +27,7 @@ function sendMessage() {
 
         messages.innerHTML += `
             <div class="linha bot">
-                <div class="bolha">${data.resposta}</div>
+                <div class="bolha">${data.response}</div>
             </div>
         `;
 
