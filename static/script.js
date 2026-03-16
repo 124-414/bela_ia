@@ -1,64 +1,30 @@
 const input = document.getElementById("input");
-const messages = document.getElementById("messages");
+const chat = document.getElementById("chat");
 const sendBtn = document.getElementById("send");
-const micBtn = document.getElementById("mic");
 
-function sendMessage() {
+async function send(){
 
-    const texto = input.value.trim();
-    if (!texto) return;
+let msg = input.value.trim();
+if(!msg) return;
 
-    messages.innerHTML += `
-        <div class="linha user">
-            <div class="bolha">${texto}</div>
-        </div>
-    `;
+chat.innerHTML += `<div class="user">Você: ${msg}</div>`;
+input.value="";
 
-    messages.scrollTop = messages.scrollHeight;
-    input.value = "";
-
-    fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: texto })
-    })
-    .then(res => res.json())
-    .then(data => {
-
-        messages.innerHTML += `
-            <div class="linha bot">
-                <div class="bolha">${data.response}</div>
-            </div>
-        `;
-
-        messages.scrollTop = messages.scrollHeight;
-    });
-}
-
-// BOTÃO
-sendBtn.addEventListener("click", sendMessage);
-
-// ENTER
-input.addEventListener("keydown", function(e) {
-    if (e.key === "Enter") {
-        sendMessage();
-    }
+let res = await fetch("/chat",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({message:msg})
 });
 
-// MICROFONE
-micBtn.addEventListener("click", function() {
+let data = await res.json();
 
-    if (!('webkitSpeechRecognition' in window)) {
-        alert("Seu navegador não suporta microfone.");
-        return;
-    }
+chat.innerHTML += `<div class="bot">Bela: ${data.response}</div>`;
 
-    const recognition = new webkitSpeechRecognition();
-    recognition.lang = "pt-BR";
+chat.scrollTop = chat.scrollHeight;
+}
 
-    recognition.start();
+sendBtn.addEventListener("click", send);
 
-    recognition.onresult = function(event) {
-        input.value = event.results[0][0].transcript;
-    };
+input.addEventListener("keypress", function(e){
+if(e.key==="Enter") send();
 });

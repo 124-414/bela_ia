@@ -1,110 +1,71 @@
 <!DOCTYPE html>
 <html>
 <head>
-
 <meta charset="UTF-8">
-
 <title>Bela IA</title>
 
 <style>
-
 body{
-background:#2f3136;
 font-family:Arial;
+background:#2f3136;
 color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+
+#container{
+width:400px;
+background:#1e1f22;
+display:flex;
+flex-direction:column;
+border-radius:10px;
+overflow:hidden;
 }
 
 #chat{
-height:70vh;
+flex:1;
+padding:10px;
 overflow:auto;
-padding:20px;
+height:500px;
 }
 
-.user{
-color:#4fc3f7;
-margin:10px 0;
-}
-
-.ai{
-color:#a5d6a7;
-margin:10px 0;
-}
+.user{color:#4fc3f7;margin:5px 0;}
+.bot{color:#a5d6a7;margin:5px 0;}
 
 #box{
 display:flex;
 padding:10px;
-background:#1e1f22;
 }
 
 #input{
 flex:1;
-padding:10px;
-font-size:16px;
+padding:8px;
 }
 
 button{
-padding:10px;
-background:#00c853;
-color:white;
-border:none;
+padding:8px 12px;
+margin-left:5px;
 cursor:pointer;
 }
-
 </style>
-
 </head>
 
 <body>
 
+<div id="container">
+
 <div id="chat"></div>
 
 <div id="box">
-
-<input id="input" placeholder="Pergunte algo">
-
-<button onclick="send()">Enviar</button>
+<input id="input" placeholder="Digite...">
+<button id="send">Enviar</button>
+</div>
 
 </div>
 
-<script>
-
-async function send(){
-
-let input=document.getElementById("input")
-
-let msg=input.value
-
-if(msg=="") return
-
-let chat=document.getElementById("chat")
-
-chat.innerHTML+=`<div class="user">Você: ${msg}</div>`
-
-input.value=""
-
-let res=await fetch("/chat",{
-
-method:"POST",
-
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-message:msg
-})
-
-})
-
-let data=await res.json()
-
-chat.innerHTML+=`<div class="ai">Bela: ${data.response}</div>`
-
-chat.scrollTop=chat.scrollHeight
-
-}
-
-</script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 
 </body>
 </html>
