@@ -1,7 +1,16 @@
 const input = document.getElementById("input");
 const messages = document.getElementById("messages");
 
-function enviar(){
+
+function send() {
+    console.log("Função send chamada");
+    // aqui vai o código de enviar mensagem
+}
+
+function voice() {
+    console.log("Função voice chamada");
+    // aqui vai o código do microfone
+}
 
 const texto = input.value.trim();
 if(!texto) return;
