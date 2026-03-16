@@ -118,7 +118,7 @@ const texto = input.value.trim()
 
 if(!texto) return
 
-messages.innerHTML += `<div class="msg user">${texto}</div>`
+messages.innerHTML += '<div class="msg user">'+texto+'</div>'
 
 messages.scrollTop = messages.scrollHeight
 
@@ -134,42 +134,7 @@ body:JSON.stringify({message:texto})
 .then(r=>r.json())
 .then(data=>{
 
-messages.innerHTML += `<div class="msg bot">${data.response}</div>`
-
-messages.scrollTop = messages.scrollHeight
-
-})
-
-}
-
-input.addEventListener("keypress",function(e){
-
-if(e.key === "Enter"){
-enviar()
-}
-
-})
-
-</script>
-
-</body>
-</html>
-
-messages.scrollTop = messages.scrollHeight
-
-input.value=""
-
-fetch("/chat",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({message:texto})
-})
-.then(r=>r.json())
-.then(data=>{
-
-messages.innerHTML += `<div class="msg bot">${data.response}</div>`
+messages.innerHTML += '<div class="msg bot">'+data.response+'</div>'
 
 messages.scrollTop = messages.scrollHeight
 
