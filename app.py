@@ -26,57 +26,74 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
 
-    msg = request.json.get("message", "")
+    try:
 
-    save("user", msg)
+        msg = request.json.get("message", "").strip()
 
-    # Data e hora atual
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M")
+        if not msg:
+            return jsonify({"response": "Digite uma mensagem."})
 
-    system_prompt = f"""
+        save("user", msg)
+
+        # Data e hora real do servidor
+        agora = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+        system_prompt = f"""
 Hoje é {agora}.
-Responda normalmente.
+Responda de forma clara e objetiva.
 """
 
-    # IMAGEM
-    if msg.startswith("imagem:"):
-        prompt = msg.replace("imagem:", "").strip()
-        url = create_image(prompt)
-        reply = f"<img src='{url}' width='300'>"
+        # IMAGEM
+        if msg.startswith("imagem:"):
+            prompt = msg.replace("imagem:", "").strip()
+            url = create_image(prompt)
+            reply = f"<img src='{url}' width='300'>"
+            save("assistant", reply)
+            return jsonify({"response": reply})
+
+        # GOOGLE
+        if msg.startswith("google:"):
+            query = msg.replace("google:", "").strip()
+            result = google_search(query)
+            msg = f"Resultados da pesquisa:\n{result}"
+
+        # MEMÓRIA
+        hist = history()
+
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=[
+                {"role": "system", "content": system_prompt},
+                *hist,
+                {"role": "user", "content": msg}
+            ]
+        )
+
+        reply = response.output_text
+
         save("assistant", reply)
+
         return jsonify({"response": reply})
 
-    # GOOGLE
-    if msg.startswith("google:"):
-        q = msg.replace("google:", "").strip()
-        res = google_search(q)
-        msg = f"Resultados da web:\n{res}"
-
-    hist = history()
-
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[
-            {"role": "system", "content": system_prompt},
-            *hist,
-            {"role": "user", "content": msg}
-        ]
-    )
-
-    reply = response.output_text
-
-    save("assistant", reply)
-
-    return jsonify({"response": reply})
+    except Exception as e:
+        print("Erro:", e)
+        return jsonify({"response": "Erro interno no servidor."})
 
 
 @app.route("/upload", methods=["POST"])
 def upload():
 
-    file = request.files["file"]
-    text = read_pdf(file)
+    try:
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"text": "Nenhum arquivo enviado."})
 
-    return jsonify({"text": text})
+        text = read_pdf(file)
+        return jsonify({"text": text})
+
+    except Exception as e:
+        print("Erro upload:", e)
+        return jsonify({"text": "Erro ao ler arquivo."})
 
 
 if __name__ == "__main__":
