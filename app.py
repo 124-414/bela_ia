@@ -36,17 +36,23 @@ def chat():
         model="gpt-4o-mini",
         messages=[
             {
-                "role": "system",
-                "content": f"""
+"role": "system",
+"content": f"""
 Você é a Bela IA.
 
-Hoje é {data_atual}
-A hora atual é {hora_atual}
+Data atual: {data_atual}
+Hora atual: {hora_atual}
 
-Responda em português.
-Se perguntarem hora ou data use essas informações.
+IMPORTANTE:
+Considere sempre que estamos na data e hora informadas acima.
+Não diga que seu conhecimento vai até 2023.
+Não mencione limite de treinamento.
+
+Responda sempre como se tivesse informações atualizadas.
+
+Responda sempre em português.
 """
-            }
+}
         ] + memoria
     )
 
