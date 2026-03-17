@@ -46,15 +46,15 @@ def chat():
     texto = msg_original.lower()
     msg_final = msg_original
 
-    # ⏰ HORA
+    # ⏰ HORA (PRIORIDADE TOTAL)
     if "que horas" in texto or texto.strip() == "hora":
         agora = datetime.now(brasil).strftime("%H:%M:%S")
         reply = f"Agora são {agora}."
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 📅 DATA
-    if "que dia" in texto or "hoje" == texto.strip():
+    # 📅 DATA (PRIORIDADE TOTAL)
+    if "que dia" in texto or "data" in texto or texto.strip() == "hoje":
         hoje = datetime.now(brasil).strftime("%d/%m/%Y")
         reply = f"Hoje é {hoje}."
         save("assistant", reply)
@@ -90,12 +90,15 @@ Dados da web:
 Pergunta:
 {msg_original}
 """
-
     except Exception as e:
         print("Erro na busca:", e)
 
-    # 🧠 HISTÓRICO
-    hist = history()
+    # 🧠 HISTÓRICO (LIMITADO)
+    hist = history()[-5:]
+
+    # 🚫 BLOQUEIO ANTI-CONFLITO (DATA/HORA)
+    if any(p in texto for p in ["data", "dia", "hoje", "horas", "hora"]):
+        hist = []
 
     try:
         response = client.responses.create(
@@ -103,7 +106,7 @@ Pergunta:
             input=[
                 {
                     "role": "system",
-                    "content": "Responda sempre em texto simples. Não use markdown, asteriscos ou formatação."
+                    "content": "Responda sempre em texto simples, direto e atualizado. Nunca invente datas ou horários. Use informações da internet quando disponíveis."
                 }
             ] + hist + [
                 {"role": "user", "content": msg_final}
@@ -112,7 +115,7 @@ Pergunta:
 
         reply = response.output_text
 
-        # 🔥 Limpeza extra
+        # 🔥 Limpeza de formatação
         reply = re.sub(r'[\*_`]', '', reply)
 
     except Exception as e:

@@ -2,10 +2,12 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bela IA</title>
 
 <style>
 body{
+margin:0;
 font-family:Arial;
 background:#2f3136;
 color:white;
@@ -17,6 +19,8 @@ height:100vh;
 
 #container{
 width:420px;
+max-width:100%;
+height:90vh;
 background:#1e1f22;
 display:flex;
 flex-direction:column;
@@ -24,30 +28,76 @@ border-radius:10px;
 overflow:hidden;
 }
 
+/* CHAT */
 #chat{
 flex:1;
 padding:10px;
-overflow:auto;
-height:500px;
+overflow-y:auto;
+display:flex;
+flex-direction:column;
 }
 
-.user{color:#4fc3f7;margin:5px 0;}
-.bot{color:#a5d6a7;margin:5px 0;}
+/* MENSAGENS */
+.msg{
+margin:5px 0;
+padding:10px;
+border-radius:12px;
+max-width:80%;
+word-wrap:break-word;
+}
 
+.user{
+background:#4fc3f7;
+color:black;
+align-self:flex-end;
+}
+
+.bot{
+background:#3a3b3f;
+color:#a5d6a7;
+align-self:flex-start;
+}
+
+/* INPUT FIXO */
 #box{
 display:flex;
 padding:10px;
+background:#1e1f22;
+border-top:1px solid #444;
+position:sticky;
+bottom:0;
 }
 
 #input{
 flex:1;
-padding:8px;
+padding:10px;
+border-radius:20px;
+border:none;
+outline:none;
 }
 
+/* BOTÕES */
 button{
-padding:8px 12px;
+padding:10px;
 margin-left:5px;
 cursor:pointer;
+border:none;
+border-radius:20px;
+background:#5865f2;
+color:white;
+}
+
+/* MOBILE */
+@media(max-width:600px){
+#container{
+width:100%;
+height:100vh;
+border-radius:0;
+}
+
+.msg{
+max-width:95%;
+}
 }
 </style>
 </head>
@@ -59,14 +109,63 @@ cursor:pointer;
 <div id="chat"></div>
 
 <div id="box">
-<input id="input" placeholder="Digite...">
+<input id="input" placeholder="Digite..." onkeypress="if(event.key==='Enter') enviar()">
 <button id="mic">🎤</button>
-<button id="send">Enviar</button>
+<button id="send" onclick="enviar()">Enviar</button>
 </div>
 
 </div>
 
-<script src="{{ url_for('static', filename='script.js') }}"></script>
+<script>
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
+
+/* 🔥 Mensagem inicial automática */
+addMsg("Bela", "Olá! Sou a Bela IA 🤖. Posso acessar a internet, analisar PDFs e responder suas perguntas. Como posso ajudar?");
+
+/* FUNÇÃO DE EXIBIÇÃO */
+function addMsg(user, text){
+let div = document.createElement("div");
+div.className = "msg " + (user === "Você" ? "user" : "bot");
+
+/* permite imagens e HTML vindo do backend */
+div.innerHTML = "<b>" + user + ":</b> " + text;
+
+chat.appendChild(div);
+chat.scrollTop = chat.scrollHeight;
+}
+
+/* ENVIO */
+function enviar(){
+let msg = input.value.trim();
+if(!msg) return;
+
+addMsg("Você", msg);
+
+fetch("/chat", {
+method: "POST",
+headers: {"Content-Type": "application/json"},
+body: JSON.stringify({message: msg})
+})
+.then(res => res.json())
+.then(data => {
+addMsg("Bela", data.response);
+})
+.catch(() => {
+addMsg("Bela", "Erro ao conectar com o servidor.");
+});
+
+input.value = "";
+}
+
+/* BOTÃO ENTER */
+document.getElementById("send").onclick = enviar;
+
+/* 🎤 (placeholder, não quebra nada) */
+document.getElementById("mic").onclick = () => {
+alert("Função de voz será ativada em breve.");
+};
+</script>
 
 </body>
 </html>
