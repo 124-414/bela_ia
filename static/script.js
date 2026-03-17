@@ -1,66 +1,30 @@
-const input = document.getElementById("input");
 const chat = document.getElementById("chat");
-const sendBtn = document.getElementById("send");
-const micBtn = document.getElementById("mic");
+const input = document.getElementById("input");
+const send = document.getElementById("send");
 
-async function send(){
-
-let msg = input.value.trim();
-if(!msg) return;
-
-chat.innerHTML += `<div class="user">Você: ${msg}</div>`;
-input.value="";
-
-try{
-
-let res = await fetch("/chat",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({message:msg})
-});
-
-let data = await res.json();
-
-chat.innerHTML += `<div class="bot">Bela: ${data.response}</div>`;
-
-speak(data.response);
-
-}catch{
-
-chat.innerHTML += `<div class="bot">Erro de conexão.</div>`;
-
+function addMessage(text, className) {
+    const div = document.createElement("div");
+    div.className = className;
+    div.innerHTML = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
 }
 
-chat.scrollTop = chat.scrollHeight;
-}
+send.onclick = async () => {
+    const message = input.value;
+    if (!message) return;
 
-sendBtn.addEventListener("click", send);
+    addMessage("Você: " + message, "user");
 
-input.addEventListener("keypress", function(e){
-if(e.key==="Enter") send();
-});
+    input.value = "";
 
-// VOZ (texto → fala)
-function speak(text){
-let utterance = new SpeechSynthesisUtterance(text);
-utterance.lang = "pt-BR";
-speechSynthesis.speak(utterance);
-}
+    const res = await fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({message})
+    });
 
-// MICROFONE
-micBtn.addEventListener("click", function(){
+    const data = await res.json();
 
-if(!('webkitSpeechRecognition' in window)){
-alert("Seu navegador não suporta voz.");
-return;
-}
-
-const recognition = new webkitSpeechRecognition();
-recognition.lang="pt-BR";
-recognition.start();
-
-recognition.onresult=function(event){
-input.value = event.results[0][0].transcript;
+    addMessage("Bela: " + data.response, "bot");
 };
-
-});

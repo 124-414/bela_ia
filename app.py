@@ -15,23 +15,18 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# 🔑 OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# 📦 Banco de dados
 init_db()
 
-# 🌎 Fuso horário Brasil
 brasil = pytz.timezone("America/Sao_Paulo")
 
 
-# 🏠 Página inicial
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
-# 💬 CHAT
 @app.route("/chat", methods=["POST"])
 def chat():
 
@@ -46,35 +41,23 @@ def chat():
     texto = msg_original.lower()
     msg_final = msg_original
 
-    # ⏰ HORA (PRIORIDADE TOTAL)
+    # ⏰ HORA
     if "que horas" in texto or texto.strip() == "hora":
         agora = datetime.now(brasil).strftime("%H:%M:%S")
         reply = f"Agora são {agora}."
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 📅 DATA (PRIORIDADE TOTAL)
+    # 📅 DATA
     if "que dia" in texto or "data" in texto or texto.strip() == "hoje":
         hoje = datetime.now(brasil).strftime("%d/%m/%Y")
         reply = f"Hoje é {hoje}."
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 🧠 DETECÇÃO DE NOTÍCIAS / TEMAS ATUAIS
-    palavras_noticia = [
-        "hoje", "agora", "noticia", "notícias",
-        "guerra", "ataque", "urgente", "recente",
-        "2025", "2026", "ontem"
-    ]
-
-    usar_web = any(p in texto for p in palavras_noticia)
-
     # 🖼 IMAGEM
-    if msg_original.startswith("imagem:") or "criar imagem" in texto or "gerar imagem" in texto:
-        if msg_original.startswith("imagem:"):
-            prompt = msg_original.replace("imagem:", "").strip()
-        else:
-            prompt = msg_original
+    if msg_original.startswith("imagem:") or "criar imagem" in texto:
+        prompt = msg_original.replace("imagem:", "").strip()
 
         try:
             url = create_image(prompt)
@@ -85,31 +68,24 @@ def chat():
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 🌍 BUSCA NA INTERNET (INTELIGENTE)
+    # 🌍 BUSCA FORÇADA NA INTERNET
     try:
         res = google_search(msg_original)
 
-        if usar_web and res and len(res.strip()) > 50:
+        if res and len(res.strip()) > 50:
             msg_final = f"""
-Responda usando OBRIGATORIAMENTE as informações abaixo da internet.
-NUNCA diga que não tem acesso a dados atuais.
-Se for pergunta de notícia, responda como se fosse atual.
+Você DEVE responder usando SOMENTE as informações abaixo.
 
-Dados da web:
+DADOS DA INTERNET:
 {res}
 
-Pergunta:
+PERGUNTA:
 {msg_original}
 """
     except Exception as e:
         print("Erro na busca:", e)
 
-    # 🧠 HISTÓRICO (LIMITADO)
     hist = history()[-5:]
-
-    # 🚫 BLOQUEIO ANTI-CONFLITO (DATA/HORA)
-    if any(p in texto for p in ["data", "dia", "hoje", "horas", "hora"]):
-        hist = []
 
     try:
         response = client.responses.create(
@@ -117,7 +93,7 @@ Pergunta:
             input=[
                 {
                     "role": "system",
-                    "content": "Responda sempre em texto simples, direto e atualizado. Nunca diga que não tem acesso à internet. Nunca mencione limitação de conhecimento."
+                    "content": "Responda direto. Nunca diga que não tem acesso à internet."
                 }
             ] + hist + [
                 {"role": "user", "content": msg_final}
@@ -126,10 +102,12 @@ Pergunta:
 
         reply = response.output_text
 
-        # 🔥 Limpeza de respostas indesejadas
+        # limpeza
         reply = re.sub(r'[\*_`]', '', reply)
-        reply = re.sub(r'(?i)não tenho acesso.*?\.', '', reply)
-        reply = re.sub(r'(?i)minha base de dados.*?\.', '', reply)
+
+        # bloqueio de resposta errada
+        if "não tenho acesso" in reply.lower():
+            reply = "Erro: busca não aplicada."
 
     except Exception as e:
         reply = f"Erro na IA: {str(e)}"
@@ -139,7 +117,6 @@ Pergunta:
     return jsonify({"response": reply})
 
 
-# 📂 UPLOAD PDF
 @app.route("/upload", methods=["POST"])
 def upload():
 
@@ -152,7 +129,6 @@ def upload():
     return jsonify({"text": text})
 
 
-# 🚀 EXECUÇÃO LOCAL / RENDER
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

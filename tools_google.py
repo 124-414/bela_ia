@@ -1,37 +1,27 @@
 import requests
+from bs4 import BeautifulSoup
+
 
 def google_search(query):
-
     try:
-        url = "https://api.duckduckgo.com/"
-
-        params = {
-            "q": query,
-            "format": "json",
-            "no_html": 1,
-            "skip_disambig": 1
+        headers = {
+            "User-Agent": "Mozilla/5.0"
         }
 
-        r = requests.get(url, params=params, timeout=10)
+        url = f"https://www.google.com/search?q={query}&hl=pt-BR"
 
-        if r.status_code != 200:
-            return ""
-
-        data = r.json()
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, "html.parser")
 
         results = []
 
-        # Resumo principal
-        if data.get("AbstractText"):
-            results.append(data["AbstractText"])
+        for g in soup.find_all("div", class_="BNeawe s3v9rd AP7Wnd"):
+            text = g.get_text()
+            if len(text) > 50:
+                results.append(text)
 
-        # Tópicos relacionados
-        for topic in data.get("RelatedTopics", [])[:5]:
-            if isinstance(topic, dict) and topic.get("Text"):
-                results.append(topic["Text"])
-
-        return "\n".join(results)
+        return "\n".join(results[:5])
 
     except Exception as e:
-        print("Erro na busca:", e)
+        print("Erro Google:", e)
         return ""
