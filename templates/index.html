@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,34 +38,34 @@ flex-direction:column;
 }
 
 /* MENSAGENS */
-.msg{
+.user{
 margin:5px 0;
 padding:10px;
 border-radius:12px;
 max-width:80%;
-word-wrap:break-word;
-}
-
-.user{
 background:#4fc3f7;
 color:black;
 align-self:flex-end;
+word-wrap:break-word;
 }
 
 .bot{
+margin:5px 0;
+padding:10px;
+border-radius:12px;
+max-width:80%;
 background:#3a3b3f;
 color:#a5d6a7;
 align-self:flex-start;
+word-wrap:break-word;
 }
 
-/* INPUT FIXO */
+/* INPUT */
 #box{
 display:flex;
 padding:10px;
 background:#1e1f22;
 border-top:1px solid #444;
-position:sticky;
-bottom:0;
 }
 
 #input{
@@ -95,7 +95,7 @@ height:100vh;
 border-radius:0;
 }
 
-.msg{
+.user, .bot{
 max-width:95%;
 }
 }
@@ -106,66 +106,19 @@ max-width:95%;
 
 <div id="container">
 
-<div id="chat"></div>
+    <!-- 🔥 CHAT LIMPO (SEM MENSAGEM INICIAL) -->
+    <div id="chat"></div>
 
-<div id="box">
-<input id="input" placeholder="Digite..." onkeypress="if(event.key==='Enter') enviar()">
-<button id="mic">🎤</button>
-<button id="send" onclick="enviar()">Enviar</button>
+    <!-- INPUT -->
+    <div id="box">
+        <input id="input" placeholder="Digite sua mensagem..." />
+        <button id="send">Enviar</button>
+    </div>
+
 </div>
 
-</div>
-
-<script>
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
-
-/* 🔥 Mensagem inicial automática */
-addMsg("Bela", "Olá! Sou a Bela IA 🤖. Posso acessar a internet, analisar PDFs e responder suas perguntas. Como posso ajudar?");
-
-/* FUNÇÃO DE EXIBIÇÃO */
-function addMsg(user, text){
-let div = document.createElement("div");
-div.className = "msg " + (user === "Você" ? "user" : "bot");
-
-/* permite imagens e HTML vindo do backend */
-div.innerHTML = "<b>" + user + ":</b> " + text;
-
-chat.appendChild(div);
-chat.scrollTop = chat.scrollHeight;
-}
-
-/* ENVIO */
-function enviar(){
-let msg = input.value.trim();
-if(!msg) return;
-
-addMsg("Você", msg);
-
-fetch("/chat", {
-method: "POST",
-headers: {"Content-Type": "application/json"},
-body: JSON.stringify({message: msg})
-})
-.then(res => res.json())
-.then(data => {
-addMsg("Bela", data.response);
-})
-.catch(() => {
-addMsg("Bela", "Erro ao conectar com o servidor.");
-});
-
-input.value = "";
-}
-
-/* BOTÃO ENTER */
-document.getElementById("send").onclick = enviar;
-
-/* 🎤 (placeholder, não quebra nada) */
-document.getElementById("mic").onclick = () => {
-alert("Função de voz será ativada em breve.");
-};
-</script>
+<!-- 🔥 USA APENAS SCRIPT EXTERNO -->
+<script src="/static/script.js"></script>
 
 </body>
 </html>
