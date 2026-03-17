@@ -60,6 +60,15 @@ def chat():
         save("assistant", reply)
         return jsonify({"response": reply})
 
+    # 🧠 DETECÇÃO DE NOTÍCIAS / TEMAS ATUAIS
+    palavras_noticia = [
+        "hoje", "agora", "noticia", "notícias",
+        "guerra", "ataque", "urgente", "recente",
+        "2025", "2026", "ontem"
+    ]
+
+    usar_web = any(p in texto for p in palavras_noticia)
+
     # 🖼 IMAGEM
     if msg_original.startswith("imagem:") or "criar imagem" in texto or "gerar imagem" in texto:
         if msg_original.startswith("imagem:"):
@@ -76,13 +85,15 @@ def chat():
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 🌍 BUSCA NA INTERNET
+    # 🌍 BUSCA NA INTERNET (INTELIGENTE)
     try:
         res = google_search(msg_original)
 
-        if res and res.strip() != "":
+        if usar_web and res and len(res.strip()) > 50:
             msg_final = f"""
-Use as informações atualizadas da internet abaixo para responder.
+Responda usando OBRIGATORIAMENTE as informações abaixo da internet.
+NUNCA diga que não tem acesso a dados atuais.
+Se for pergunta de notícia, responda como se fosse atual.
 
 Dados da web:
 {res}
@@ -106,7 +117,7 @@ Pergunta:
             input=[
                 {
                     "role": "system",
-                    "content": "Responda sempre em texto simples, direto e atualizado. Nunca invente datas ou horários. Use informações da internet quando disponíveis."
+                    "content": "Responda sempre em texto simples, direto e atualizado. Nunca diga que não tem acesso à internet. Nunca mencione limitação de conhecimento."
                 }
             ] + hist + [
                 {"role": "user", "content": msg_final}
@@ -115,8 +126,10 @@ Pergunta:
 
         reply = response.output_text
 
-        # 🔥 Limpeza de formatação
+        # 🔥 Limpeza de respostas indesejadas
         reply = re.sub(r'[\*_`]', '', reply)
+        reply = re.sub(r'(?i)não tenho acesso.*?\.', '', reply)
+        reply = re.sub(r'(?i)minha base de dados.*?\.', '', reply)
 
     except Exception as e:
         reply = f"Erro na IA: {str(e)}"
