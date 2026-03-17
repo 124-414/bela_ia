@@ -1,158 +1,124 @@
 import os
-import re
-import threading
-from datetime import datetime
-
-import pytz
+import requests
 from flask import Flask, request, jsonify, render_template
-from openai import OpenAI
 from dotenv import load_dotenv
+from openai import OpenAI
 
-from database import init_db, save, history
-from tools_google import google_search
-from tools_pdf import read_pdf
-from tools_image import create_image
-from tools_news import buscar_noticias
-
+# 🔐 carregar .env
 load_dotenv()
 
 app = Flask(__name__)
 
+# 🔑 OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-init_db()
+# 🌐 FUNÇÃO DE NOTÍCIAS (PROFISSIONAL)
+def buscar_noticias(query):
+    api_key = os.getenv("NEWS_API_KEY")
 
-brasil = pytz.timezone("America/Sao_Paulo")
+    if not api_key:
+        print("❌ NEWS_API_KEY não encontrada")
+        return ""
+
+    url = "https://newsapi.org/v2/everything"
+
+    params = {
+        "q": query,
+        "language": "pt",
+        "sortBy": "publishedAt",
+        "pageSize": 5,
+        "apiKey": api_key
+    }
+
+    try:
+        res = requests.get(url, params=params, timeout=5)
+        data = res.json()
+
+        artigos = data.get("articles", [])
+
+        if not artigos:
+            return ""
+
+        textos = []
+        for art in artigos:
+            titulo = art.get("title", "")
+            fonte = art.get("source", {}).get("name", "")
+            link = art.get("url", "")
+
+            textos.append(f"• {titulo} ({fonte})\n{link}")
+
+        return "\n\n".join(textos)
+
+    except Exception as e:
+        print("Erro NewsAPI:", e)
+        return ""
 
 
+# 🧠 DETECTOR INTELIGENTE (QUANDO USAR WEB)
+def precisa_buscar(msg):
+    palavras = [
+        "noticia", "notícias", "hoje", "agora",
+        "atual", "guerra", "prefeito", "presidente",
+        "acontecendo", "últimas", "recente"
+    ]
+
+    msg = msg.lower()
+    return any(p in msg for p in palavras)
+
+
+# 🏠 FRONT
 @app.route("/")
-def home():
+def index():
     return render_template("index.html")
 
 
+# 💬 CHAT
 @app.route("/chat", methods=["POST"])
 def chat():
-
     data = request.get_json()
+    user_msg = data.get("message", "")
 
-    if not data or "message" not in data:
-        return jsonify({"response": "Mensagem inválida."})
+    contexto = ""
 
-    msg_original = data["message"]
-    save("user", msg_original)
+    # 🔥 BUSCA AUTOMÁTICA
+    if precisa_buscar(user_msg):
+        noticias = buscar_noticias(user_msg)
 
-    texto = msg_original.lower()
-    msg_final = msg_original
+        if noticias:
+            contexto = f"""
+Use APENAS as informações abaixo para responder com base em fatos atuais:
 
-    # ⏰ HORA
-    if "que horas" in texto or texto.strip() == "hora":
-        agora = datetime.now(brasil).strftime("%H:%M:%S")
-        reply = f"Agora são {agora}."
-        save("assistant", reply)
-        return jsonify({"response": reply})
+{noticias}
 
-    # 📅 DATA
-    if "que dia" in texto or "data" in texto or texto.strip() == "hoje":
-        hoje = datetime.now(brasil).strftime("%d/%m/%Y")
-        reply = f"Hoje é {hoje}."
-        save("assistant", reply)
-        return jsonify({"response": reply})
-
-    # 🖼 IMAGEM
-    if msg_original.startswith("imagem:") or "criar imagem" in texto:
-        prompt = msg_original.replace("imagem:", "").strip()
-
-        try:
-            url = create_image(prompt)
-            reply = f"<img src='{url}' width='300'>"
-        except Exception as e:
-            reply = f"Erro ao gerar imagem: {str(e)}"
-
-        save("assistant", reply)
-        return jsonify({"response": reply})
-
-    # 🌍 BUSCA PROFISSIONAL (NEWS API + FALLBACK)
-
-    res = ""
-
-    # 🔥 1. tenta NewsAPI
-    try:
-        res = buscar_noticias(msg_original)
-    except Exception as e:
-        print("Erro NewsAPI:", e)
-
-    # 🔥 2. fallback Google com timeout
-    if not res:
-        def busca():
-            global res
-            try:
-                res = google_search(msg_original)
-            except:
-                res = ""
-
-        t = threading.Thread(target=busca)
-        t.start()
-        t.join(timeout=3)
-
-    # 🧠 monta prompt com contexto real
-    if res and len(res.strip()) > 50:
-        msg_final = f"""
-Use SOMENTE as informações abaixo para responder:
-
-{res}
-
-Pergunta:
-{msg_original}
+Responda de forma clara e objetiva.
 """
-
-    hist = history()[-5:]
+        else:
+            contexto = "Não foram encontradas notícias recentes confiáveis."
 
     try:
-        response = client.responses.create(
-            model="gpt-4.1-mini",
-            timeout=10,
-            input=[
+        resposta = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
                 {
                     "role": "system",
-                    "content": """
-Você é uma IA atualizada com acesso a notícias reais da internet.
-
-Regras:
-- Seja direto e claro
-- Se houver notícias, resuma os fatos
-- Nunca diga que não tem acesso à internet
-"""
+                    "content": "Você é uma IA inteligente que responde de forma clara e profissional."
+                },
+                {
+                    "role": "user",
+                    "content": contexto + "\n\n" + user_msg
                 }
-            ] + hist + [
-                {"role": "user", "content": msg_final}
             ]
         )
 
-        reply = response.output_text
-
-        # limpa caracteres estranhos
-        reply = re.sub(r'[\*_`]', '', reply)
+        texto = resposta.choices[0].message.content
 
     except Exception as e:
-        reply = f"Erro na IA: {str(e)}"
+        print("Erro OpenAI:", e)
+        texto = "Erro ao processar resposta."
 
-    save("assistant", reply)
-
-    return jsonify({"response": reply})
-
-
-@app.route("/upload", methods=["POST"])
-def upload():
-
-    if "file" not in request.files:
-        return jsonify({"text": "Nenhum arquivo enviado."})
-
-    file = request.files["file"]
-    text = read_pdf(file)
-
-    return jsonify({"text": text})
+    return jsonify({"response": texto})
 
 
+# 🚀 RUN LOCAL
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)

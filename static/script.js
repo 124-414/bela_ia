@@ -10,8 +10,8 @@ function addMessage(text, className) {
     chat.scrollTop = chat.scrollHeight;
 }
 
-send.onclick = async () => {
-    const message = input.value;
+async function enviar() {
+    const message = input.value.trim();
     if (!message) return;
 
     addMessage("Você: " + message, "user");
@@ -31,4 +31,14 @@ send.onclick = async () => {
     } catch (err) {
         addMessage("Erro de conexão com servidor.", "bot");
     }
-};
+}
+
+/* BOTÃO */
+send.onclick = enviar;
+
+/* 🔥 ENTER VOLTOU */
+input.addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        enviar();
+    }
+});
