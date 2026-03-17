@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime
+import pytz
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -19,6 +20,9 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # 📦 Banco de dados
 init_db()
+
+# 🌎 Fuso horário Brasil
+brasil = pytz.timezone("America/Sao_Paulo")
 
 
 # 🏠 Página inicial
@@ -44,14 +48,14 @@ def chat():
 
     # ⏰ HORA
     if "que horas" in texto or texto.strip() == "hora":
-        agora = datetime.now().strftime("%H:%M:%S")
+        agora = datetime.now(brasil).strftime("%H:%M:%S")
         reply = f"Agora são {agora}."
         save("assistant", reply)
         return jsonify({"response": reply})
 
     # 📅 DATA
     if "que dia" in texto or "hoje" == texto.strip():
-        hoje = datetime.now().strftime("%d/%m/%Y")
+        hoje = datetime.now(brasil).strftime("%d/%m/%Y")
         reply = f"Hoje é {hoje}."
         save("assistant", reply)
         return jsonify({"response": reply})

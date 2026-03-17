@@ -1,36 +1,34 @@
 import requests
-from bs4 import BeautifulSoup
-import urllib.parse
-
 
 def google_search(query):
 
     try:
-        # Codifica a busca corretamente
-        query_encoded = urllib.parse.quote_plus(query)
+        url = "https://api.duckduckgo.com/"
 
-        url = f"https://www.google.com/search?q={query_encoded}&hl=pt"
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        params = {
+            "q": query,
+            "format": "json",
+            "no_html": 1,
+            "skip_disambig": 1
         }
 
-        # Timeout é importante em produção
-        r = requests.get(url, headers=headers, timeout=10)
+        r = requests.get(url, params=params, timeout=10)
 
-        # Se for bloqueado, retorna erro
         if r.status_code != 200:
             return ""
 
-        soup = BeautifulSoup(r.text, "html.parser")
+        data = r.json()
 
         results = []
 
-        # Seletores mais amplos
-        for item in soup.select("div.BNeawe")[:5]:
-            texto = item.get_text().strip()
-            if texto:
-                results.append(texto)
+        # Resumo principal
+        if data.get("AbstractText"):
+            results.append(data["AbstractText"])
+
+        # Tópicos relacionados
+        for topic in data.get("RelatedTopics", [])[:5]:
+            if isinstance(topic, dict) and topic.get("Text"):
+                results.append(topic["Text"])
 
         return "\n".join(results)
 
