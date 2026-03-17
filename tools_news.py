@@ -5,16 +5,15 @@ def buscar_noticias(query):
     api_key = os.getenv("NEWS_API_KEY")
 
     if not api_key:
-        print("SEM API KEY")
         return ""
 
     url = "https://newsapi.org/v2/everything"
 
     params = {
         "q": query,
-        "language": "pt,en",
+        "language": "pt",
         "sortBy": "publishedAt",
-        "pageSize": 5,
+        "pageSize": 3,
         "apiKey": api_key
     }
 
@@ -22,24 +21,18 @@ def buscar_noticias(query):
         res = requests.get(url, params=params, timeout=5)
         data = res.json()
 
-        print("RESPOSTA API:", data)  # 🔍 debug
+        if data.get("status") != "ok":
+            return ""
 
         artigos = data.get("articles", [])
 
-        if not artigos:
-            return ""
-
         textos = []
         for art in artigos:
-            titulo = art.get("title", "")
-            descricao = art.get("description", "")
-            fonte = art.get("source", {}).get("name", "")
-            link = art.get("url", "")
+            textos.append(
+                f"{art['title']} ({art['source']['name']})\n{art['url']}"
+            )
 
-            textos.append(f"{titulo} - {descricao} ({fonte}) {link}")
+        return "\n\n".join(textos)
 
-        return "\n".join(textos)
-
-    except Exception as e:
-        print("ERRO NEWS:", e)
+    except:
         return ""
