@@ -2,11 +2,11 @@ import os
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime
+import pytz
 from openai import OpenAI
 
-# 🔐 Carrega variáveis locais (.env)
+# 🔐 Carrega .env
 load_dotenv()
 
 app = Flask(__name__)
@@ -15,14 +15,16 @@ app = Flask(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ==============================
-# 🌐 FUNÇÃO PARA BUSCAR NOTÍCIAS
+# 📰 BUSCAR NOTÍCIAS (NEWSAPI)
 # ==============================
 def buscar_noticias(query):
     api_key = os.getenv("NEWS_API_KEY")
+
     if not api_key:
         return ""
 
     url = "https://newsapi.org/v2/everything"
+
     params = {
         "q": query,
         "language": "pt",
@@ -32,79 +34,53 @@ def buscar_noticias(query):
     }
 
     try:
-        response = requests.get(url, params=params, timeout=5)
+        response = requests.get(url, params=params, timeout=8)
         data = response.json()
+
         if data.get("status") != "ok":
             return ""
 
         artigos = data.get("articles", [])
-        textos = [
-            f"{art.get('title','')} ({art.get('source',{}).get('name','')})\n{art.get('url','')}"
-            for art in artigos
-        ]
+
+        textos = []
+        for art in artigos:
+            titulo = art.get("title", "")
+            fonte = art.get("source", {}).get("name", "")
+            link = art.get("url", "")
+            textos.append(f"{titulo} ({fonte})\n{link}")
+
         return "\n\n".join(textos)
+
     except:
         return ""
 
 # ==============================
-# 🔎 FUNÇÃO PARA DETERMINAR SE PRECISA DE WEB
-# ==============================
-def precisa_buscar(texto):
-    palavras = [
-        "noticia", "notícias", "hoje", "atual",
-        "guerra", "prefeito", "presidente",
-        "últimas", "recente", "cotação", "tempo", "clima"
-    ]
-    texto = texto.lower()
-    return any(p in texto for p in palavras)
-
-# ==============================
-# 🔎 FUNÇÃO DE PESQUISA NO GOOGLE
-# ==============================
-def google_search(query):
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        url = f"https://www.google.com/search?q={query}&hl=pt-BR"
-        response = requests.get(url, headers=headers, timeout=4)
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        results = []
-        for div in soup.find_all("div"):
-            text = div.get_text()
-            if len(text) > 80:
-                results.append(text)
-        return "\n".join(results[:3])
-    except:
-        return ""
-
-# ==============================
-# 🏠 PÁGINA PRINCIPAL
+# 🏠 PÁGINA INICIAL
 # ==============================
 @app.route("/")
 def home():
     return render_template("index.html")
 
 # ==============================
-# 💬 CHAT COM ACESSO A WEB E DATA/HORA
+# 💬 CHAT
 # ==============================
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
     user_message = data.get("message", "")
 
-    # 🔥 Contexto inicial
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    contexto = f"Data e hora atual: {agora}\n"
+    # ⏰ Horário de Brasília
+    brasilia = pytz.timezone("America/Sao_Paulo")
+    agora = datetime.now(brasilia)
+    hora_formatada = agora.strftime("%d/%m/%Y %H:%M:%S")
 
-    # 🔥 Busca de notícias ou pesquisa
-    if precisa_buscar(user_message):
-        noticias = buscar_noticias(user_message)
-        if noticias:
-            contexto += f"\nInformações recentes encontradas:\n{noticias}\n"
-        else:
-            pesquisa = google_search(user_message)
-            if pesquisa:
-                contexto += f"\nResultados da web:\n{pesquisa}\n"
+    # 📰 Buscar notícias
+    noticias = buscar_noticias(user_message)
+
+    contexto = f"Data e hora atual (Brasília): {hora_formatada}\n"
+
+    if noticias:
+        contexto += f"\nNotícias recentes encontradas:\n{noticias}\n"
 
     try:
         resposta = client.chat.completions.create(
@@ -112,15 +88,17 @@ def chat():
             messages=[
                 {
                     "role": "system",
-                    "content": "Você é uma IA profissional com acesso a informações atualizadas e ferramentas de pesquisa na web."
+                    "content": "Você é a Bela, uma IA que usa informações atualizadas quando fornecidas."
                 },
                 {
                     "role": "user",
-                    "content": contexto + user_message
+                    "content": contexto + "\nPergunta: " + user_message
                 }
             ]
         )
+
         texto = resposta.choices[0].message.content
+
     except Exception as e:
         print("Erro OpenAI:", e)
         texto = "Erro ao gerar resposta."
@@ -128,7 +106,7 @@ def chat():
     return jsonify({"response": texto})
 
 # ==============================
-# 🚀 INICIALIZAÇÃO
+# 🚀 EXECUÇÃO
 # ==============================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
