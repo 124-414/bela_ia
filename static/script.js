@@ -1,44 +1,41 @@
-const chat = document.getElementById("chat");
+// /static/script.js
 const input = document.getElementById("input");
-const send = document.getElementById("send");
+const sendBtn = document.getElementById("send");
+const chat = document.getElementById("chat");
 
-function addMessage(text, className) {
+function addMessage(text, sender) {
     const div = document.createElement("div");
-    div.className = className;
-    div.innerHTML = text;
+    div.className = sender;
+    div.innerText = text;
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
 }
 
-async function enviar() {
-    const message = input.value.trim();
-    if (!message) return;
+async function sendMessage() {
+    const msg = input.value.trim();
+    if (!msg) return;
 
-    addMessage("Você: " + message, "user");
+    addMessage(msg, "user");
     input.value = "";
+
+    addMessage("Bela está digitando...", "bot");
+    const lastBot = chat.querySelector(".bot:last-child");
 
     try {
         const res = await fetch("/chat", {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({message})
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: msg })
         });
-
         const data = await res.json();
-
-        addMessage("Bela: " + data.response, "bot");
-
+        lastBot.innerText = data.response;
     } catch (err) {
-        addMessage("Erro de conexão com servidor.", "bot");
+        lastBot.innerText = "Erro ao conectar com Bela.";
+        console.error(err);
     }
 }
 
-/* BOTÃO */
-send.onclick = enviar;
-
-/* 🔥 ENTER VOLTOU */
-input.addEventListener("keypress", function(e) {
-    if (e.key === "Enter") {
-        enviar();
-    }
+sendBtn.addEventListener("click", sendMessage);
+input.addEventListener("keypress", e => {
+    if (e.key === "Enter") sendMessage();
 });
