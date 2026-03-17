@@ -1,6 +1,8 @@
 import os
 import re
+import threading
 from datetime import datetime
+
 import pytz
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
@@ -10,6 +12,7 @@ from database import init_db, save, history
 from tools_google import google_search
 from tools_pdf import read_pdf
 from tools_image import create_image
+from tools_news import buscar_noticias
 
 load_dotenv()
 
@@ -68,13 +71,30 @@ def chat():
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 🌍 BUSCA COM PROTEÇÃO (NÃO TRAVA)
-    res = ""
-    try:
-        res = google_search(msg_original)
-    except Exception as e:
-        print("Erro busca:", e)
+    # 🌍 BUSCA PROFISSIONAL (NEWS API + FALLBACK)
 
+    res = ""
+
+    # 🔥 1. tenta NewsAPI
+    try:
+        res = buscar_noticias(msg_original)
+    except Exception as e:
+        print("Erro NewsAPI:", e)
+
+    # 🔥 2. fallback Google com timeout
+    if not res:
+        def busca():
+            global res
+            try:
+                res = google_search(msg_original)
+            except:
+                res = ""
+
+        t = threading.Thread(target=busca)
+        t.start()
+        t.join(timeout=3)
+
+    # 🧠 monta prompt com contexto real
     if res and len(res.strip()) > 50:
         msg_final = f"""
 Use SOMENTE as informações abaixo para responder:
@@ -90,10 +110,18 @@ Pergunta:
     try:
         response = client.responses.create(
             model="gpt-4.1-mini",
+            timeout=10,
             input=[
                 {
                     "role": "system",
-                    "content": "Responda direto e claro. Nunca diga que não tem acesso à internet."
+                    "content": """
+Você é uma IA atualizada com acesso a notícias reais da internet.
+
+Regras:
+- Seja direto e claro
+- Se houver notícias, resuma os fatos
+- Nunca diga que não tem acesso à internet
+"""
                 }
             ] + hist + [
                 {"role": "user", "content": msg_final}
@@ -102,6 +130,7 @@ Pergunta:
 
         reply = response.output_text
 
+        # limpa caracteres estranhos
         reply = re.sub(r'[\*_`]', '', reply)
 
     except Exception as e:
