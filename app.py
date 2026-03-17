@@ -68,22 +68,22 @@ def chat():
         save("assistant", reply)
         return jsonify({"response": reply})
 
-    # 🌍 BUSCA FORÇADA NA INTERNET
+    # 🌍 BUSCA COM PROTEÇÃO (NÃO TRAVA)
+    res = ""
     try:
         res = google_search(msg_original)
+    except Exception as e:
+        print("Erro busca:", e)
 
-        if res and len(res.strip()) > 50:
-            msg_final = f"""
-Você DEVE responder usando SOMENTE as informações abaixo.
+    if res and len(res.strip()) > 50:
+        msg_final = f"""
+Use SOMENTE as informações abaixo para responder:
 
-DADOS DA INTERNET:
 {res}
 
-PERGUNTA:
+Pergunta:
 {msg_original}
 """
-    except Exception as e:
-        print("Erro na busca:", e)
 
     hist = history()[-5:]
 
@@ -93,7 +93,7 @@ PERGUNTA:
             input=[
                 {
                     "role": "system",
-                    "content": "Responda direto. Nunca diga que não tem acesso à internet."
+                    "content": "Responda direto e claro. Nunca diga que não tem acesso à internet."
                 }
             ] + hist + [
                 {"role": "user", "content": msg_final}
@@ -102,12 +102,7 @@ PERGUNTA:
 
         reply = response.output_text
 
-        # limpeza
         reply = re.sub(r'[\*_`]', '', reply)
-
-        # bloqueio de resposta errada
-        if "não tenho acesso" in reply.lower():
-            reply = "Erro: busca não aplicada."
 
     except Exception as e:
         reply = f"Erro na IA: {str(e)}"

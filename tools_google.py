@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
 
-
 def google_search(query):
     try:
         headers = {
@@ -10,17 +9,19 @@ def google_search(query):
 
         url = f"https://www.google.com/search?q={query}&hl=pt-BR"
 
-        response = requests.get(url, headers=headers)
+        # 🔥 TIMEOUT EVITA TRAVAMENTO
+        response = requests.get(url, headers=headers, timeout=4)
+
         soup = BeautifulSoup(response.text, "html.parser")
 
         results = []
 
-        for g in soup.find_all("div", class_="BNeawe s3v9rd AP7Wnd"):
-            text = g.get_text()
-            if len(text) > 50:
+        for div in soup.find_all("div"):
+            text = div.get_text()
+            if len(text) > 80:
                 results.append(text)
 
-        return "\n".join(results[:5])
+        return "\n".join(results[:3])
 
     except Exception as e:
         print("Erro Google:", e)

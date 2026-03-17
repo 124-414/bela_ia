@@ -15,16 +15,20 @@ send.onclick = async () => {
     if (!message) return;
 
     addMessage("Você: " + message, "user");
-
     input.value = "";
 
-    const res = await fetch("/chat", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({message})
-    });
+    try {
+        const res = await fetch("/chat", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({message})
+        });
 
-    const data = await res.json();
+        const data = await res.json();
 
-    addMessage("Bela: " + data.response, "bot");
+        addMessage("Bela: " + data.response, "bot");
+
+    } catch (err) {
+        addMessage("Erro de conexão com servidor.", "bot");
+    }
 };
