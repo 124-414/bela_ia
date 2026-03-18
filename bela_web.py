@@ -75,15 +75,18 @@ def chat():
     agora = datetime.now(brasilia)
     hora_formatada = agora.strftime("%d/%m/%Y %H:%M:%S")
 
-    # 📰 Notícias
-    noticias = buscar_noticias(user_message)
+    # 🔎 quando buscar notícias
+    palavras_chave = ["notícia", "noticias", "acontecendo", "atual", "hoje", "guerra", "política"]
 
-    contexto = f"""
-Data e hora atual (Brasília): {hora_formatada}
+    noticias = ""
+    if any(p in user_message.lower() for p in palavras_chave):
+        noticias = buscar_noticias(user_message)
 
-Notícias recentes:
-{noticias if noticias else "Nenhuma notícia encontrada"}
-"""
+    # 🔥 CONTEXTO INTELIGENTE
+    contexto = f"Data e hora atual (Brasília): {hora_formatada}\n"
+
+    if noticias:
+        contexto += f"\nNotícias recentes:\n{noticias}\n"
 
     try:
         resposta = client.chat.completions.create(
@@ -91,13 +94,16 @@ Notícias recentes:
             messages=[
                 {
                     "role": "system",
-                    "content": """Você é a Bela, uma IA atualizada.
+                    "content": """Você é a Bela, uma IA inteligente.
 
-SEMPRE use as notícias fornecidas.
-Se houver notícias, nunca diga que não tem acesso à internet.
-Responda com base nelas.
+REGRAS:
+- Use notícias SOMENTE se forem fornecidas no contexto.
+- Se NÃO houver notícias, ignore completamente esse assunto.
+- NÃO invente notícias.
+- NÃO diga que não tem acesso à internet.
+- Para perguntas normais, responda direto e corretamente.
 
-Se não houver notícias, responda normalmente."""
+Seja natural e objetiva."""
                 },
                 {
                     "role": "user",
@@ -106,8 +112,6 @@ Se não houver notícias, responda normalmente."""
 
 Pergunta:
 {user_message}
-
-Responda de forma clara e atual.
 """
                 }
             ]
