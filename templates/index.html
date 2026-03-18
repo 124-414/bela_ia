@@ -3,59 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <title>Bela IA</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background: #1e293b;
+            padding: 15px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        #chat {
+            padding: 20px;
+            height: 70vh;
+            overflow-y: auto;
+        }
+
+        .msg {
+            margin-bottom: 10px;
+        }
+
+        .user {
+            color: #38bdf8;
+        }
+
+        .bot {
+            color: #22c55e;
+        }
+
+        .error {
+            color: red;
+        }
+
+        footer {
+            display: flex;
+            padding: 10px;
+            background: #1e293b;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            outline: none;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            background: #22c55e;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #16a34a;
+        }
+    </style>
 </head>
 <body>
 
-    <h1>Bela IA</h1>
+<header>
+    🤖 Bela IA
+</header>
 
-    <div id="chat"></div>
+<div id="chat"></div>
 
-    <input id="input" type="text" placeholder="Digite sua mensagem">
+<footer>
+    <input id="input" type="text" placeholder="Digite sua mensagem...">
     <button onclick="send()">Enviar</button>
+</footer>
 
-    <script>
-        async function send() {
-            const input = document.getElementById("input");
-            const chat = document.getElementById("chat");
+<script>
+async function send() {
+    const input = document.getElementById("input");
+    const chat = document.getElementById("chat");
 
-            const message = input.value;
+    const message = input.value.trim();
 
-            if (!message) return;
+    if (!message) return;
 
-            chat.innerHTML += "<p><b>Você:</b> " + message + "</p>";
+    // Mostrar mensagem do usuário
+    chat.innerHTML += `<div class="msg user"><b>Você:</b> ${message}</div>`;
 
-            input.value = "";
+    input.value = "";
+    chat.scrollTop = chat.scrollHeight;
 
-            try {
-                const response = await fetch("/chat", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ message: message })
-                });
+    try {
+        const response = await fetch("/chat", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message: message })
+        });
 
-                if (!response.ok) {
-                    throw new Error("Erro no servidor");
-                }
-
-                const data = await response.json();
-
-                chat.innerHTML += "<p><b>Bela:</b> " + data.response + "</p>";
-
-            } catch (error) {
-                chat.innerHTML += "<p><b>Erro:</b> Falha na comunicação com o servidor.</p>";
-                console.error(error);
-            }
+        if (!response.ok) {
+            throw new Error("Erro no servidor");
         }
 
-        // 🔥 ENTER FUNCIONANDO
-        document.getElementById("input").addEventListener("keypress", function(e) {
-            if (e.key === "Enter") {
-                send();
-            }
-        });
-    </script>
+        const data = await response.json();
+
+        chat.innerHTML += `<div class="msg bot"><b>Bela:</b> ${data.response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+
+    } catch (error) {
+        chat.innerHTML += `<div class="msg error"><b>Erro:</b> Falha ao conectar com o servidor</div>`;
+        console.error(error);
+    }
+}
+
+// ENTER funcionando
+document.getElementById("input").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        send();
+    }
+});
+</script>
 
 </body>
 </html>
