@@ -6,7 +6,7 @@ from datetime import datetime
 import pytz
 from openai import OpenAI
 
-# 🔐 Carrega .env
+# 🔐 Carrega variáveis
 load_dotenv()
 
 app = Flask(__name__)
@@ -15,7 +15,7 @@ app = Flask(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ==============================
-# 📰 BUSCAR NOTÍCIAS (NEWSAPI)
+# 📰 BUSCAR NOTÍCIAS
 # ==============================
 def buscar_noticias(query):
     api_key = os.getenv("NEWS_API_KEY")
@@ -56,7 +56,7 @@ def buscar_noticias(query):
         return ""
 
 # ==============================
-# 🏠 PÁGINA INICIAL
+# 🏠 HOME
 # ==============================
 @app.route("/")
 def home():
@@ -70,18 +70,20 @@ def chat():
     data = request.get_json()
     user_message = data.get("message", "")
 
-    # ⏰ Horário de Brasília
+    # ⏰ Hora Brasília
     brasilia = pytz.timezone("America/Sao_Paulo")
     agora = datetime.now(brasilia)
     hora_formatada = agora.strftime("%d/%m/%Y %H:%M:%S")
 
-    # 📰 Buscar notícias
+    # 📰 Notícias
     noticias = buscar_noticias(user_message)
 
-    contexto = f"Data e hora atual (Brasília): {hora_formatada}\n"
+    contexto = f"""
+Data e hora atual (Brasília): {hora_formatada}
 
-    if noticias:
-        contexto += f"\nNotícias recentes encontradas:\n{noticias}\n"
+Notícias recentes:
+{noticias if noticias else "Nenhuma notícia encontrada"}
+"""
 
     try:
         resposta = client.chat.completions.create(
@@ -89,11 +91,24 @@ def chat():
             messages=[
                 {
                     "role": "system",
-                    "content": "Você é a Bela, uma IA que usa informações atualizadas quando fornecidas."
+                    "content": """Você é a Bela, uma IA atualizada.
+
+SEMPRE use as notícias fornecidas.
+Se houver notícias, nunca diga que não tem acesso à internet.
+Responda com base nelas.
+
+Se não houver notícias, responda normalmente."""
                 },
                 {
                     "role": "user",
-                    "content": contexto + "\nPergunta: " + user_message
+                    "content": f"""
+{contexto}
+
+Pergunta:
+{user_message}
+
+Responda de forma clara e atual.
+"""
                 }
             ]
         )
@@ -102,12 +117,12 @@ def chat():
 
     except Exception as e:
         print("Erro OpenAI:", e)
-        texto = "Erro ao gerar resposta."
+        texto = f"Erro: {str(e)}"
 
     return jsonify({"response": texto})
 
 # ==============================
-# 🚀 EXECUÇÃO
+# 🚀 RUN
 # ==============================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
