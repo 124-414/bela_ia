@@ -51,7 +51,8 @@ def buscar_noticias(query):
 
         return "\n\n".join(textos)
 
-    except:
+    except Exception as e:
+        print("Erro NewsAPI:", e)
         return ""
 
 # ==============================
