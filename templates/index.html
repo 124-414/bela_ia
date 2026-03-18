@@ -1,20 +1,56 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bela IA</title>
+    <meta charset="UTF-8">
+    <title>Bela IA</title>
 </head>
 <body>
 
-<h2>Bela IA</h2>
+<h2>💬 Bela IA</h2>
 
-<div id="chat"></div>
+<div id="chat" style="border:1px solid #ccc; height:300px; overflow:auto; padding:10px;"></div>
 
-<input id="input" placeholder="Digite..." />
+<br>
+
+<input id="input" type="text" placeholder="Digite sua mensagem..." style="width:70%;">
 <button onclick="send()">Enviar</button>
 
-<script src="/static/script.js"></script>
+<script>
+async function send() {
+    const input = document.getElementById("input");
+    const chat = document.getElementById("chat");
+
+    const message = input.value.trim();
+    if (!message) return;
+
+    chat.innerHTML += "<p><b>Você:</b> " + message + "</p>";
+
+    input.value = "";
+
+    try {
+        const response = await fetch("/chat", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({message: message})
+        });
+
+        const data = await response.json();
+
+        chat.innerHTML += "<p><b>Bela:</b> " + data.response + "</p>";
+        chat.scrollTop = chat.scrollHeight;
+
+    } catch (error) {
+        chat.innerHTML += "<p style='color:red;'>Erro ao conectar</p>";
+    }
+}
+
+// ✅ ENTER FUNCIONANDO
+document.getElementById("input").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        send();
+    }
+});
+</script>
 
 </body>
 </html>
