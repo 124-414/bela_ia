@@ -11,7 +11,6 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# 🧠 OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ==============================
@@ -21,7 +20,7 @@ def buscar_noticias(query):
     api_key = os.getenv("NEWS_API_KEY")
 
     if not api_key:
-        return ""
+        return []
 
     url = "https://newsapi.org/v2/everything"
 
@@ -38,22 +37,13 @@ def buscar_noticias(query):
         data = response.json()
 
         if data.get("status") != "ok":
-            return ""
+            return []
 
-        artigos = data.get("articles", [])
-
-        textos = []
-        for art in artigos:
-            titulo = art.get("title", "")
-            fonte = art.get("source", {}).get("name", "")
-            link = art.get("url", "")
-            textos.append(f"{titulo} ({fonte})\n{link}")
-
-        return "\n\n".join(textos)
+        return data.get("articles", [])
 
     except Exception as e:
         print("Erro NewsAPI:", e)
-        return ""
+        return []
 
 # ==============================
 # 🏠 HOME
@@ -70,23 +60,26 @@ def chat():
     data = request.get_json()
     user_message = data.get("message", "")
 
-    # ⏰ Hora Brasília
+    # ⏰ Hora
     brasilia = pytz.timezone("America/Sao_Paulo")
     agora = datetime.now(brasilia)
-    hora_formatada = agora.strftime("%d/%m/%Y %H:%M:%S")
+    hora = agora.strftime("%d/%m/%Y %H:%M:%S")
 
-    # 🔎 detectar se precisa buscar notícia
-    palavras_chave = ["notícia", "noticias", "guerra", "acontecendo", "hoje", "atual"]
+    # 🔎 detectar se precisa notícia
+    palavras = ["notícia", "noticias", "guerra", "hoje", "atual", "acontecendo"]
 
-    noticias = ""
-    if any(p in user_message.lower() for p in palavras_chave):
-        noticias = buscar_noticias(user_message)
+    artigos = []
+    if any(p in user_message.lower() for p in palavras):
+        artigos = buscar_noticias(user_message)
 
-    # 🧠 contexto LIMPO
-    contexto = f"Data atual: {hora_formatada}\n"
+    # 🔥 MONTA CONTEXTO CONTROLADO
+    contexto = f"Data atual: {hora}\n"
 
-    if noticias:
-        contexto += f"\nNOTÍCIAS REAIS:\n{noticias}\n"
+    if artigos:
+        contexto += "\nNOTÍCIAS REAIS:\n"
+        for art in artigos:
+            contexto += f"- {art.get('title')} ({art.get('source', {}).get('name')})\n"
+            contexto += f"{art.get('url')}\n\n"
 
     try:
         resposta = client.chat.completions.create(
@@ -94,17 +87,17 @@ def chat():
             messages=[
                 {
                     "role": "system",
-                    "content": """Você é a Bela, uma IA confiável.
+                    "content": """Você é a Bela, uma IA precisa e confiável.
 
-REGRAS CRÍTICAS:
-- NUNCA invente notícias ou fatos.
-- Use SOMENTE notícias fornecidas no contexto.
-- Se não houver notícias, NÃO mencione notícias.
-- NÃO diga que não tem acesso à internet.
-- Para perguntas factuais (política, pessoas, cargos), responda normalmente com conhecimento geral.
-- Se não souber algo, diga claramente que não tem informação suficiente.
+REGRAS ABSOLUTAS:
+- Use SOMENTE as notícias fornecidas.
+- NÃO invente nenhuma informação.
+- Se houver notícias, baseie-se APENAS nelas.
+- Se NÃO houver notícias, IGNORE completamente esse assunto.
+- Para perguntas gerais (ex: política, pessoas), responda normalmente.
+- Se não souber algo, diga claramente.
 
-Seja direta, honesta e precisa."""
+Seja objetiva e correta."""
                 },
                 {
                     "role": "user",
