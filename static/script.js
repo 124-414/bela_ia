@@ -10,7 +10,12 @@ async function send() {
     button.disabled = true;
 
     // Mostra mensagem do usuário
-    chat.innerHTML += `<p class="user"><b>Você:</b> ${message}</p>`;
+    chat.innerHTML += `
+        <div class="user">
+            <img src="https://via.placeholder.com/40" alt="User"/>
+            <div class="message">${message}</div>
+        </div>
+    `;
 
     // Scroll automático
     chat.scrollTop = chat.scrollHeight;
@@ -30,11 +35,21 @@ async function send() {
 
         const data = await response.json();
 
-        chat.innerHTML += `<p class="bot"><b>Bela:</b> ${data.response}</p>`;
+        chat.innerHTML += `
+            <div class="bot">
+                <img src="https://via.placeholder.com/40" alt="Bot"/>
+                <div class="message">${data.response}</div>
+            </div>
+        `;
 
     } catch (error) {
         console.error("Erro:", error);
-        chat.innerHTML += `<p class="bot"><b>Bela:</b> Erro ao conectar com o servidor.</p>`;
+        chat.innerHTML += `
+            <div class="bot">
+                <img src="https://via.placeholder.com/40" alt="Bot"/>
+                <div class="message">Erro ao conectar com o servidor.</div>
+            </div>
+        `;
     }
 
     // Limpa input
@@ -46,7 +61,6 @@ async function send() {
     // Scroll automático
     chat.scrollTop = chat.scrollHeight;
 }
-
 
 // Permitir enviar com ENTER
 document.getElementById("input").addEventListener("keypress", function (e) {
