@@ -75,18 +75,18 @@ def chat():
     agora = datetime.now(brasilia)
     hora_formatada = agora.strftime("%d/%m/%Y %H:%M:%S")
 
-    # 🔎 quando buscar notícias
-    palavras_chave = ["notícia", "noticias", "acontecendo", "atual", "hoje", "guerra", "política"]
+    # 🔎 detectar se precisa buscar notícia
+    palavras_chave = ["notícia", "noticias", "guerra", "acontecendo", "hoje", "atual"]
 
     noticias = ""
     if any(p in user_message.lower() for p in palavras_chave):
         noticias = buscar_noticias(user_message)
 
-    # 🔥 CONTEXTO INTELIGENTE
-    contexto = f"Data e hora atual (Brasília): {hora_formatada}\n"
+    # 🧠 contexto LIMPO
+    contexto = f"Data atual: {hora_formatada}\n"
 
     if noticias:
-        contexto += f"\nNotícias recentes:\n{noticias}\n"
+        contexto += f"\nNOTÍCIAS REAIS:\n{noticias}\n"
 
     try:
         resposta = client.chat.completions.create(
@@ -94,16 +94,17 @@ def chat():
             messages=[
                 {
                     "role": "system",
-                    "content": """Você é a Bela, uma IA inteligente.
+                    "content": """Você é a Bela, uma IA confiável.
 
-REGRAS:
-- Use notícias SOMENTE se forem fornecidas no contexto.
-- Se NÃO houver notícias, ignore completamente esse assunto.
-- NÃO invente notícias.
+REGRAS CRÍTICAS:
+- NUNCA invente notícias ou fatos.
+- Use SOMENTE notícias fornecidas no contexto.
+- Se não houver notícias, NÃO mencione notícias.
 - NÃO diga que não tem acesso à internet.
-- Para perguntas normais, responda direto e corretamente.
+- Para perguntas factuais (política, pessoas, cargos), responda normalmente com conhecimento geral.
+- Se não souber algo, diga claramente que não tem informação suficiente.
 
-Seja natural e objetiva."""
+Seja direta, honesta e precisa."""
                 },
                 {
                     "role": "user",
