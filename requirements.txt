@@ -1,6 +1,6 @@
 flask
-gunicorn
-openai
 python-dotenv
+openai
 requests
+googlesearch-python
 pytz
