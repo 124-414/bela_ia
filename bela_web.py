@@ -2,7 +2,7 @@ import os
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from openai import OpenAI
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 import pytz
 from tools_google import pesquisar_google
 
@@ -20,49 +20,39 @@ def chat():
     user_message = data.get("message", "").strip()
     
     if not user_message:
-        return jsonify({"response": "Como posso ajudar você hoje?"})
+        return jsonify({"response": "Estou aqui para ajudar!"})
 
-    # --- MOTOR DE TEMPO UNIVERSAL (UTC) ---
-    # Usamos o UTC como base para calcular qualquer lugar do mundo sem erros
-    agora_utc = datetime.now(timezone.utc)
-    data_hoje = agora_utc.strftime('%d/%m/%Y')
-    
-    # 1. BUSCA WEB ATIVA (Para fatos, política e eventos globais)
+    # MOTOR DE TEMPO
+    fuso_bsb = pytz.timezone('America/Sao_Paulo')
+    agora_bsb = datetime.now(fuso_bsb)
+    data_hoje = agora_bsb.strftime('%d/%m/%Y')
+    hora_bsb = agora_bsb.strftime('%H:%M')
+
     contexto_web = pesquisar_google(user_message)
     
     try:
-        # PROMPT DE CONTEXTO GERAL E ATUALIZADO
         prompt_sistema = (
-            f"Você é a Bela, uma assistente virtual avançada operando em {data_hoje}.\n"
-            f"REFERÊNCIA MUNDIAL: O horário atual em UTC-0 é {agora_utc.strftime('%H:%M')}.\n\n"
-            "DIRETRIZES DE PENSAMENTO:\n"
-            "1. CONTEXTO GLOBAL: Você deve ser capaz de informar sobre qualquer país, estado ou cidade.\n"
-            "2. REALIDADE 2026: Trump é o presidente dos EUA (desde 2025), Lula é o presidente do Brasil, "
-            "Milei na Argentina, Macron na França. Use os dados da web para outros líderes.\n"
-            "3. LÓGICA DE FUSO: Ao responder sobre horários, verifique o desvio UTC da região. "
-            "Exemplo: Brasília (UTC-3), Mato Grosso/Rondônia/Bolívia (UTC-4), Portugal (UTC+1).\n"
-            "4. BUSCA WEB: Priorize sempre as informações retornadas abaixo. Se a busca falhar, "
-            "use seu conhecimento geral atualizado para 2026.\n"
-            "5. PRECISÃO: Não invente fatos. Se não houver registro de um evento em 2026, informe que não encontrou.\n"
-            f"\nDADOS DA WEB (TEMPO REAL): {contexto_web if contexto_web else 'Sem notícias recentes. Use lógica de 2026.'}"
+            f"Você é a Bela, uma IA Global de 2026. Hoje é {data_hoje}.\n"
+            f"Referência: Brasília {hora_bsb}.\n\n"
+            "DIRETRIZES DE RESPOSTA:\n"
+            "1. TÉCNICA: Domínio de NRs (10, 11, 12, 35) e Segurança do Trabalho.\n"
+            "2. HISTÓRIA: Rondônia foi Território Federal do Guaporé (1943) vindo de MT e AM. Estado em 1981.\n"
+            "3. GLOBAL: Religião, Política, Futebol e Ciência sem limites geográficos.\n"
+            "4. ESTILO: Respostas organizadas com tabelas e listas sempre que possível.\n"
+            f"\nDADOS DA WEB: {contexto_web if contexto_web else 'Pesquisa ativa.'}"
         )
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": prompt_sistema},
-                {"role": "user", "content": user_message}
-            ],
-            temperature=0.2 # Equilíbrio entre precisão e fluidez na conversa
+            messages=[{"role": "system", "content": prompt_sistema}, {"role": "user", "content": user_message}],
+            temperature=0.2
         )
         
-        resposta = response.choices[0].message.content
-        return jsonify({"response": resposta})
+        return jsonify({"response": response.choices[0].message.content})
 
     except Exception as e:
-        print(f"Erro OpenAI: {e}")
-        return jsonify({"response": "Desculpe, tive um problema ao processar sua pergunta."})
+        return jsonify({"response": "Erro ao processar. Tente novamente."})
 
 if __name__ == "__main__":
-    # Mantemos debug=True para facilitar seus testes locais
-    app.run(host="127.0.0.1", port=8080, debug=True)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
