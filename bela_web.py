@@ -20,7 +20,7 @@ def chat():
     user_message = data.get("message", "").strip()
     
     if not user_message:
-        return jsonify({"response": "Estou aqui para ajudar!"})
+        return jsonify({"response": "Estou aqui!"})
 
     # MOTOR DE TEMPO
     fuso_bsb = pytz.timezone('America/Sao_Paulo')
@@ -32,14 +32,14 @@ def chat():
     
     try:
         prompt_sistema = (
-            f"Você é a Bela, uma IA Global de 2026. Hoje é {data_hoje}.\n"
-            f"Referência: Brasília {hora_bsb}.\n\n"
-            "DIRETRIZES DE RESPOSTA:\n"
-            "1. TÉCNICA: Domínio de NRs (10, 11, 12, 35) e Segurança do Trabalho.\n"
-            "2. HISTÓRIA: Rondônia foi Território Federal do Guaporé (1943) vindo de MT e AM. Estado em 1981.\n"
-            "3. GLOBAL: Religião, Política, Futebol e Ciência sem limites geográficos.\n"
-            "4. ESTILO: Respostas organizadas com tabelas e listas sempre que possível.\n"
-            f"\nDADOS DA WEB: {contexto_web if contexto_web else 'Pesquisa ativa.'}"
+            f"Você é a BELA, uma inteligência artificial avançada de 2026.\n"
+            f"Data: {data_hoje} | Hora: {hora_bsb} (Brasília).\n\n"
+            "DIRETRIZES:\n"
+            "- RESPOSTA CURTA E PRECISA: Use tabelas e listas para clareza.\n"
+            "- SEGURANÇA: Domínio de NRs (10, 11, 12, 35).\n"
+            "- HISTÓRIA: Rondônia foi Território Federal do Guaporé (1943), vindo de MT e AM. Estado em 1981.\n"
+            "- GLOBAL: Conhecimento universal sobre religião, política, futebol e ciência.\n"
+            f"\nDADOS ATUAIS DA WEB: {contexto_web if contexto_web else 'Pesquisa em tempo real ativa.'}"
         )
 
         response = client.chat.completions.create(
@@ -50,8 +50,8 @@ def chat():
         
         return jsonify({"response": response.choices[0].message.content})
 
-    except Exception as e:
-        return jsonify({"response": "Erro ao processar. Tente novamente."})
+    except Exception:
+        return jsonify({"response": "Houve um erro no servidor."})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
