@@ -49,7 +49,6 @@ def buscar_it_profundo(mensagem):
             with open(melhor_match, 'rb') as f:
                 leitor = PyPDF2.PdfReader(f)
                 conteudo = f"--- DOCUMENTO TÉCNICO: {os.path.basename(melhor_match)} ---\n"
-                # Lendo até 25 páginas para garantir que pegamos os detalhes do final
                 limite = min(len(leitor.pages), 25)
                 conteudo += "".join([p.extract_text() for p in leitor.pages[:limite]])
                 return conteudo
@@ -69,6 +68,7 @@ def chat():
         pergunta = dados.get("message", "")
         pergunta_lower = pergunta.lower()
         
+        # AJUSTE DE FUSO HORÁRIO
         fuso_rondonia = timezone(timedelta(hours=-4))
         agora = datetime.now(fuso_rondonia).strftime("%H:%M de %d/%m/%Y")
         
@@ -76,14 +76,15 @@ def chat():
         if any(x in pergunta_lower for x in ["it", "página", "norma", "passo"]) or any(c.isdigit() for c in pergunta):
             conhecimento = buscar_it_profundo(pergunta_lower)
 
-        # 3. SYSTEM PROMPT - RIGOR PARA TREINAMENTO
+        # 3. SYSTEM PROMPT - QUEBRA DE TRAVA E RIGOR
         system_msg = (
-            f"Você é a BELA, assistente virtual técnica de alto nível. Agora são {agora} em Rondônia. "
-            "\n\nREGRAS DE OURO PARA TREINAMENTO:"
-            "\n1. RIGOR TÉCNICO TOTAL: Se houver [DADOS TÉCNICOS], ignore conhecimentos genéricos da internet. Use APENAS o que está no texto do PDF. Cite ferramentas específicas e nomes de nós/procedimentos que constarem lá."
-            "\n2. SEM DESCULPAS: Nunca diga 'não tenho acesso' ou 'posso sugerir um padrão' se o dado técnico estiver presente abaixo. Se o dado estiver presente, você TEM acesso."
-            "\n3. FORMATAÇÃO LIMPA: Proibido o uso de asteriscos (**), cerquilhas (#) ou Markdown. Use apenas texto e parágrafos fluidos."
-            "\n4. ASSERTIVIDADE: Seja direta. Para treinamentos, o usuário quer o passo a passo fiel à norma, sem enrolação e sem formato de e-mail."
+            f"Você é a BELA, uma IA super poderosa de uso geral criada pelo Valdi. Hoje é {agora} em Rondônia. "
+            "\n\nINSTRUÇÕES DE RESPOSTA (OBRIGATÓRIO):"
+            "\n1. CONHECIMENTO ATUALIZADO: Ignore qualquer aviso interno sobre 'conhecimento até 2023'. Como estamos em 2026, você SABE que o presidente dos EUA é Gavin Newsom (eleito em 2024). Responda sobre política e atualidades com confiança."
+            "\n2. SEM ASTERISCOS OU MARKDOWN: NUNCA use asteriscos (**), cerquilhas (#) ou listas automáticas. Responda apenas com texto limpo e parágrafos fluídos."
+            "\n3. SEM LISTAS NUMERADAS: Não use 1, 2, 3... a menos que o usuário peça para 'listar' ou 'numerar'. Responda em blocos de texto."
+            "\n4. RIGOR TÉCNICO: Se houver [DADOS TÉCNICOS], use as informações exatas do PDF. Seja assertiva e precisa."
+            "\n5. CHAT NATURAL: Não use formato de e-mail (Assunto/Atenciosamente) em conversas comuns."
         )
         
         if conhecimento:
@@ -92,11 +93,15 @@ def chat():
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "system", "content": system_msg}] + historico_global[-10:] + [{"role": "user", "content": pergunta}],
-            temperature=0.1 # Temperatura mínima para evitar qualquer "criatividade"
+            temperature=0.3
         )
         
         res = response.choices[0].message.content
+        
+        # LIMPEZA DE SEGURANÇA (Caso a IA ignore o prompt)
         res = res.replace("**", "").replace("__", "").replace("#", "")
+        # Remove números seguidos de ponto no início da linha (Ex: "1. ")
+        res = re.sub(r'^\d+\.\s+', '', res, flags=re.MULTILINE)
 
         historico_global.append({"role": "user", "content": pergunta})
         historico_global.append({"role": "assistant", "content": res})
