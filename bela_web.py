@@ -2,7 +2,7 @@ import os
 import re
 import PyPDF2
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -22,7 +22,7 @@ def extrair_radical(palavra):
         if p.endswith('s'): p = p[:-1]
     return re.sub(r'[^a-z0-9]', '', p)
 
-def buscar_it_automatico(mensagem):
+def buscar_it_profundo(mensagem):
     base_path = os.path.dirname(os.path.abspath(__file__))
     diretorio_docs = os.path.join(base_path, "docs")
     if not os.path.exists(diretorio_docs): return None
@@ -48,8 +48,10 @@ def buscar_it_automatico(mensagem):
         try:
             with open(melhor_match, 'rb') as f:
                 leitor = PyPDF2.PdfReader(f)
-                conteudo = f"--- DOC ENCONTRADO: {os.path.basename(melhor_match)} ---\n"
-                conteudo += "".join([p.extract_text() for p in leitor.pages[:10]])
+                conteudo = f"--- DOCUMENTO TÉCNICO: {os.path.basename(melhor_match)} ---\n"
+                # Lendo até 25 páginas para garantir que pegamos os detalhes do final
+                limite = min(len(leitor.pages), 25)
+                conteudo += "".join([p.extract_text() for p in leitor.pages[:limite]])
                 return conteudo
         except: return None
     return None
@@ -66,38 +68,35 @@ def chat():
         dados = request.json
         pergunta = dados.get("message", "")
         pergunta_lower = pergunta.lower()
-        agora = datetime.now().strftime("%H:%M de %d/%m/%Y")
+        
+        fuso_rondonia = timezone(timedelta(hours=-4))
+        agora = datetime.now(fuso_rondonia).strftime("%H:%M de %d/%m/%Y")
         
         conhecimento = None
-        palavras_it = ["it", "norma", "instrucao", "procedimento", "como fazer"]
-        if any(p in pergunta_lower for p in palavras_it) or any(c.isdigit() for c in pergunta):
-            conhecimento = buscar_it_automatico(pergunta_lower)
+        if any(x in pergunta_lower for x in ["it", "página", "norma", "passo"]) or any(c.isdigit() for c in pergunta):
+            conhecimento = buscar_it_profundo(pergunta_lower)
 
-        # 3. SYSTEM PROMPT REFINADO (REMOÇÃO DE ASTERISCOS E RIGOR TOTAL)
+        # 3. SYSTEM PROMPT - RIGOR PARA TREINAMENTO
         system_msg = (
-            f"Você é a BELA, assistente oficial da Energisa. Data: {agora}. "
-            "Você atende sob coordenação do Valdimar (Valdi). "
-            "\n\nREGRAS DE OURO:"
-            "\n1. SEM FORMATAÇÃO: NUNCA use asteriscos (**), cerquilhas (#) ou Markdown. Responda apenas com texto limpo e parágrafos."
-            "\n2. RIGOR E ASSERTIVIDADE: Respostas diretas, factuais e com alto rigor técnico."
-            "\n3. PADRÃO DE E-MAIL: Assunto, Saudação, Corpo e uma Despedida única. Sem numeração automática."
-            "\n4. NUMERAÇÃO: Use listas (1, 2, 3...) somente se o usuário pedir explicitamente 'numere' ou 'liste'."
-            "\n5. CONTEXTO: Use os [DADOS TÉCNICOS] se disponíveis para extrair o passo a passo fiel da Energisa."
+            f"Você é a BELA, assistente virtual técnica de alto nível. Agora são {agora} em Rondônia. "
+            "\n\nREGRAS DE OURO PARA TREINAMENTO:"
+            "\n1. RIGOR TÉCNICO TOTAL: Se houver [DADOS TÉCNICOS], ignore conhecimentos genéricos da internet. Use APENAS o que está no texto do PDF. Cite ferramentas específicas e nomes de nós/procedimentos que constarem lá."
+            "\n2. SEM DESCULPAS: Nunca diga 'não tenho acesso' ou 'posso sugerir um padrão' se o dado técnico estiver presente abaixo. Se o dado estiver presente, você TEM acesso."
+            "\n3. FORMATAÇÃO LIMPA: Proibido o uso de asteriscos (**), cerquilhas (#) ou Markdown. Use apenas texto e parágrafos fluidos."
+            "\n4. ASSERTIVIDADE: Seja direta. Para treinamentos, o usuário quer o passo a passo fiel à norma, sem enrolação e sem formato de e-mail."
         )
         
         if conhecimento:
-            system_msg += f"\n\n[DADOS TÉCNICOS]:\n{conhecimento}"
+            system_msg += f"\n\n[DADOS TÉCNICOS EXTRAÍDOS]:\n{conhecimento}"
 
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[{"role": "system", "content": system_msg}] + historico_global[-12:] + [{"role": "user", "content": pergunta}],
-            temperature=0.3 # Baixa temperatura para garantir o cumprimento das regras de formatação
+            messages=[{"role": "system", "content": system_msg}] + historico_global[-10:] + [{"role": "user", "content": pergunta}],
+            temperature=0.1 # Temperatura mínima para evitar qualquer "criatividade"
         )
         
         res = response.choices[0].message.content
-        
-        # Limpeza extra via código para garantir que nenhum asterisco escape
-        res = res.replace("**", "").replace("__", "")
+        res = res.replace("**", "").replace("__", "").replace("#", "")
 
         historico_global.append({"role": "user", "content": pergunta})
         historico_global.append({"role": "assistant", "content": res})
@@ -108,4 +107,5 @@ def chat():
         return jsonify({"response": f"Erro: {str(e)}"})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host='0.0.0.0', port=port, debug=False)
