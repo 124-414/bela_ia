@@ -2,20 +2,65 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bela IA</title>
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; background: #ffffff; color: #333; }
-        header { background: #ffffff; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; color: #0047ab; border-bottom: 2px solid #0047ab; }
-        #chat { height: 75vh; overflow-y: auto; padding: 20px; background: #f4f7f9; display: flex; flex-direction: column; }
+        /* AJUSTE: Garante que o fundo não role e ocupe a tela toda */
+        html, body { 
+            margin: 0; 
+            height: 100%; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif; 
+            background: #ffffff; 
+            color: #333; 
+        }
+
+        /* AJUSTE: Cria uma estrutura de coluna fixa */
+        body { 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        /* Mantido exatamente como o seu original */
+        header { 
+            background: #ffffff; 
+            padding: 20px; 
+            text-align: center; 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #0047ab; 
+            border-bottom: 2px solid #0047ab; 
+            flex-shrink: 0; /* Impede o header de encolher */
+        }
+
+        /* AJUSTE: O chat agora ocupa o espaço flexível e tem sua própria rolagem */
+        #chat { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 20px; 
+            background: #f4f7f9; 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        /* Estilos de mensagem mantidos */
         .msg { position: relative; margin-bottom: 20px; padding: 15px; border-radius: 12px; line-height: 1.5; max-width: 85%; border: 1px solid #e0e0e0; word-wrap: break-word; }
-        
-        /* ACRESCIMO: white-space: pre-wrap faz o navegador respeitar as quebras de linha (\n) */
         .user { background: #0047ab; color: white; align-self: flex-end; border-bottom-right-radius: 2px; white-space: pre-wrap; }
-        
         .bot { background: white; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; padding-top: 45px; }
+        
         .copy-btn { position: absolute; top: 10px; right: 10px; background: #f0f0f0; border: 1px solid #ccc; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: bold; color: #555; }
         .copy-btn:hover { background: #0047ab; color: white; }
-        footer { display: flex; padding: 15px; background: white; border-top: 1px solid #eee; gap: 10px; }
+
+        /* AJUSTE: O footer fica sempre "grudado" na parte inferior */
+        footer { 
+            display: flex; 
+            padding: 15px; 
+            background: white; 
+            border-top: 1px solid #eee; 
+            gap: 10px; 
+            flex-shrink: 0; 
+        }
+
         input { flex: 1; padding: 15px; border: 1px solid #ccc; border-radius: 30px; outline: none; font-size: 16px; }
         #send-btn { background: #0047ab; color: white; border: none; padding: 0 25px; border-radius: 30px; cursor: pointer; font-weight: bold; }
         .loading { color: #888; font-style: italic; }
@@ -37,7 +82,6 @@
         const rawMessage = input.value.trim();
         if (!rawMessage) return;
 
-        // ACRESCIMO: Esta linha procura pontuação grudada e insere uma quebra de linha (\n)
         const message = rawMessage.replace(/([?.!])\s*/g, "$1\n");
 
         chat.innerHTML += `<div class="msg user"><b>Você:</b><br>${message}</div>`;

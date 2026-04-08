@@ -1,54 +1,66 @@
-body{
-margin:0;
-background:#343541;
-color:white;
-font-family:Arial;
-}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bela IA</title>
+    <style>
+        /* 1. ESTRUTURA GLOBAL: Trava a rolagem da página inteira */
+        html, body { 
+            margin: 0; 
+            height: 100%; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif; 
+            background: #ffffff; 
+            color: #333; 
+        }
 
-#chat{
-display:flex;
-flex-direction:column;
-height:100vh;
-}
+        /* 2. LAYOUT FLEX: Organiza Header (topo), Chat (meio) e Footer (base) */
+        body { 
+            display: flex; 
+            flex-direction: column; 
+        }
 
-#messages{
-flex:1;
-overflow-y:auto;
-padding:20px;
-}
+        /* 3. TOPO: Sempre visível */
+        header { 
+            background: #ffffff; 
+            padding: 20px; 
+            text-align: center; 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #0047ab; 
+            border-bottom: 2px solid #0047ab; 
+            flex-shrink: 0; 
+        }
 
-.user{
-background:#444654;
-padding:12px;
-margin:8px;
-border-radius:8px;
-}
+        /* 4. ÁREA DE CHAT: Único lugar onde a rolagem acontece */
+        #chat { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 20px; 
+            background: #f4f7f9; 
+            display: flex; 
+            flex-direction: column; 
+            -webkit-overflow-scrolling: touch; /* Rolagem suave no iPhone */
+        }
 
-.bot{
-background:#40414f;
-padding:12px;
-margin:8px;
-border-radius:8px;
-}
+        /* BOLHAS DE MENSAGEM (Seu estilo original preservado) */
+        .msg { position: relative; margin-bottom: 20px; padding: 15px; border-radius: 12px; line-height: 1.5; max-width: 85%; border: 1px solid #e0e0e0; word-wrap: break-word; }
+        .user { background: #0047ab; color: white; align-self: flex-end; border-bottom-right-radius: 2px; white-space: pre-wrap; }
+        .bot { background: white; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; padding-top: 45px; }
+        .copy-btn { position: absolute; top: 10px; right: 10px; background: #f0f0f0; border: 1px solid #ccc; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: bold; color: #555; }
+        .copy-btn:hover { background: #0047ab; color: white; }
 
-#inputArea{
-display:flex;
-padding:10px;
-background:#202123;
-}
+        /* 5. RODAPÉ: Sempre fixo na base da tela */
+        footer { 
+            display: flex; 
+            padding: 15px; 
+            background: white; 
+            border-top: 1px solid #eee; 
+            gap: 10px; 
+            flex-shrink: 0; 
+        }
 
-#input{
-flex:1;
-padding:10px;
-border-radius:6px;
-border:none;
-}
-
-button{
-margin-left:5px;
-padding:10px;
-border:none;
-background:#19c37d;
-color:white;
-border-radius:6px;
-}
+        input { flex: 1; padding: 15px; border: 1px solid #ccc; border-radius: 30px; outline: none; font-size: 16px; min-width: 0; }
+        #send-btn { background: #0047ab; color: white; border: none; padding: 0 25px; border-radius: 30px; cursor: pointer; font-weight: bold; flex-shrink: 0; }
+        .loading { color: #888; font-style: italic; }
+    </style>
+</head>
