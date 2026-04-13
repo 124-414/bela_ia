@@ -1,43 +1,53 @@
-import os, re, json, PyPDF2, unicodedata
+import os, base64, re, PyPDF2, unicodedata
 from datetime import datetime, timedelta, timezone
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
-from dotenv import load_dotenv
-from tools_wikipedia import buscar_wikipedia
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-app = Flask(__name__, template_folder='templates', static_folder='static')
+try:
+    from tools_image import create_image
+except ImportError:
+    def create_image(prompt): return None
+
+app = Flask(__name__)
+
+# MEMÓRIA GLOBAL (Para manter o contexto do chat)
 historico_global = []
+
+def encode_image(image_file):
+    return base64.b64encode(image_file.read()).decode('utf-8')
 
 def extrair_radical(palavra):
     if not palavra: return ""
     p = "".join(c for c in unicodedata.normalize('NFKD', palavra) if not unicodedata.combining(c))
     p = p.lower().strip()
-    if len(p) > 4 and p.endswith('s'): p = p[:-1]
     return re.sub(r'[^a-z0-9]', '', p)
 
 def buscar_it_pdf(mensagem):
+    """Busca técnica nos documentos locais"""
     base_path = os.path.dirname(os.path.abspath(__file__))
     diretorio_docs = os.path.join(base_path, "docs")
     if not os.path.exists(diretorio_docs): return None
-    numeros = re.findall(r'\d+', mensagem)
-    termos = [extrair_radical(t) for t in mensagem.split() if len(t) > 3]
+    
+    termos = [extrair_radical(t) for t in mensagem.split() if len(t) > 2]
     melhor_match, maior_pontuacao = None, 0
+    
     for root, dirs, files in os.walk(diretorio_docs):
         for arq in files:
             if arq.lower().endswith(".pdf"):
-                pontos = sum(200 for n in numeros if n in arq)
-                pontos += sum(40 for t in termos if t in extrair_radical(arq))
+                pontos = sum(50 for t in termos if t in extrair_radical(arq))
                 if pontos > maior_pontuacao:
                     maior_pontuacao, melhor_match = pontos, os.path.join(root, arq)
-    if melhor_match and maior_pontuacao >= 100:
+    
+    if melhor_match and maior_pontuacao > 0:
         try:
             with open(melhor_match, 'rb') as f:
                 leitor = PyPDF2.PdfReader(f)
-                return f"--- CONTEÚDO TÉCNICO PDF: {os.path.basename(melhor_match)} ---\n" + \
-                       "".join([p.extract_text() for p in leitor.pages[:35]])
+                return f"--- CONTEÚDO TÉCNICO ENCONTRADO ({os.path.basename(melhor_match)}) ---\n" + \
+                       "".join([p.extract_text() for p in leitor.pages[:10]])
         except: return None
     return None
 
@@ -49,44 +59,66 @@ def index():
 def chat():
     global historico_global
     try:
-        data = request.json
-        pergunta = data.get("message", "").strip()
+        pergunta = request.form.get("message", "").strip()
+        arquivo = request.files.get("file")
         pergunta_lower = pergunta.lower()
-        agora = datetime.now(timezone(timedelta(hours=-4))).strftime("%H:%M de %d/%m/%Y")
+        
+        # Data e Hora Atual (GMT-4 para exemplo)
+        agora = datetime.now(timezone(timedelta(hours=-4)))
+        timestamp = agora.strftime('%H:%M de %d/%m/%Y')
 
-        # RAG - Busca Inteligente
-        contexto_pdf = buscar_it_pdf(pergunta_lower) if any(x in pergunta_lower for x in ["it", "nº", "tecnica"]) else None
-        contexto_web = buscar_wikipedia(pergunta) if not contexto_pdf else ""
+        # 1. GERAÇÃO DE IMAGEM (Sem alterar lógica existente)
+        gatilhos_criacao = ["imagem", "foto", "gerar", "desenhe", "crie uma imagem"]
+        if any(k in pergunta_lower for k in gatilhos_criacao) and not arquivo:
+            url = create_image(pergunta)
+            if url:
+                historico_global.append({"role": "user", "content": pergunta})
+                historico_global.append({"role": "assistant", "content": "Imagem gerada com sucesso."})
+                return jsonify({"response": "Como sua IA gênio, processei sua solicitação visual. Aqui está:", "image_url": url})
 
-        system_msg = (
-            f"IDENTIDADE: BELA. DATA: {agora}. LOCAL: Rondônia.\n"
-            "MISSÃO: Você é uma Analista Sênior de Dados e Geopolítica.\n"
-            "COMPORTAMENTO:\n"
-            "1. Seja educada, responda saudações, mas seja extremamente técnica em perguntas complexas.\n"
-            "2. ANO ATUAL: 2026. Use o [CONTEÚDO WEB] como base para fatos recentes.\n"
-            "3. PRECISÃO: Evite respostas genéricas. Se o contexto trouxer números ou nomes de leis, cite-os.\n"
-            "4. FORMATO: Não repita a pergunta do usuário. Se houver uma lista, apenas numere as respostas.\n"
-            "5. Se o dado não existir de forma alguma na Web, explique o cenário provável com base em indicadores reais de 2025."
+        # 2. BUSCA TÉCNICA (IT)
+        contexto_extra = ""
+        if any(x in pergunta_lower for x in ["it", "it ", "instrução técnica"]):
+            contexto_extra = buscar_it_pdf(pergunta_lower)
+
+        # 3. PROMPT DE SISTEMA (Identidade e Memória)
+        system_instruction = (
+            f"Você é a BELA, Analista Técnica Sênior de Engenharia e Segurança. "
+            f"Hoje é {timestamp}. "
+            "Você deve ser precisa, técnica e sempre considerar o histórico da conversa para unificar e-mails ou retomar assuntos. "
+            "Se o usuário enviar uma IT, analise com base nas normas de segurança brasileiras (NRs)."
         )
 
-        prompt_final = system_msg
-        if contexto_web: prompt_final += f"\n[PESQUISA WEB ATUAL]: {contexto_web}"
-        if contexto_pdf: prompt_final += f"\n[DOC TÉCNICO]: {contexto_pdf}"
+        messages = [{"role": "system", "content": system_instruction}]
+        messages.extend(historico_global[-8:]) # Mantém as últimas 8 mensagens na memória
 
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "system", "content": prompt_final}] + historico_global[-6:] + [{"role": "user", "content": pergunta}],
-            temperature=0.6 # Ideal para manter a fluidez sem perder a linha lógica
-        )
+        # 4. TRATAMENTO DE VISÃO OU TEXTO
+        if arquivo:
+            base64_img = encode_image(arquivo)
+            messages.append({
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"Analise técnica/OCR: {pergunta}"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
+                ]
+            })
+        else:
+            prompt_com_contexto = pergunta
+            if contexto_extra:
+                prompt_com_contexto = f"CONTEXTO TÉCNICO:\n{contexto_extra}\n\nPERGUNTA:\n{pergunta}"
+            messages.append({"role": "user", "content": prompt_com_contexto})
 
-        res = response.choices[0].message.content
-        historico_global.append({"role": "user", "content": pergunta})
-        historico_global.append({"role": "assistant", "content": res})
-        if len(historico_global) > 12: historico_global = historico_global[-12:]
+        response = client.chat.completions.create(model="gpt-4o", messages=messages, temperature=0.7)
+        res_text = response.choices[0].message.content
+        
+        # Salva na memória
+        historico_global.append({"role": "user", "content": pergunta or "[Imagem Enviada]"})
+        historico_global.append({"role": "assistant", "content": res_text})
 
-        return jsonify({"response": res})
+        return jsonify({"response": res_text})
+
     except Exception as e:
-        return jsonify({"response": f"Erro: {str(e)}"})
+        return jsonify({"response": f"Erro técnico: {str(e)}"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=False)
