@@ -14,7 +14,7 @@ except ImportError:
 
 app = Flask(__name__)
 
-# MEMÓRIA GLOBAL (Para manter o contexto do chat)
+# MEMÓRIA GLOBAL
 historico_global = []
 
 def encode_image(image_file):
@@ -27,7 +27,6 @@ def extrair_radical(palavra):
     return re.sub(r'[^a-z0-9]', '', p)
 
 def buscar_it_pdf(mensagem):
-    """Busca técnica nos documentos locais"""
     base_path = os.path.dirname(os.path.abspath(__file__))
     diretorio_docs = os.path.join(base_path, "docs")
     if not os.path.exists(diretorio_docs): return None
@@ -63,56 +62,62 @@ def chat():
         arquivo = request.files.get("file")
         pergunta_lower = pergunta.lower()
         
-        # Data e Hora Atual (GMT-4 para exemplo)
-        agora = datetime.now(timezone(timedelta(hours=-4)))
+        agora = datetime.now(timezone(timedelta(hours=-3)))
         timestamp = agora.strftime('%H:%M de %d/%m/%Y')
 
-        # 1. GERAÇÃO DE IMAGEM (Sem alterar lógica existente)
-        gatilhos_criacao = ["imagem", "foto", "gerar", "desenhe", "crie uma imagem"]
-        if any(k in pergunta_lower for k in gatilhos_criacao) and not arquivo:
+        if any(k in pergunta_lower for k in ["imagem", "foto", "gerar", "desenhe", "crie uma imagem"]) and not arquivo:
             url = create_image(pergunta)
             if url:
                 historico_global.append({"role": "user", "content": pergunta})
-                historico_global.append({"role": "assistant", "content": "Imagem gerada com sucesso."})
-                return jsonify({"response": "Como sua IA gênio, processei sua solicitação visual. Aqui está:", "image_url": url})
+                historico_global.append({"role": "assistant", "content": "[Imagem Gerada]"})
+                return jsonify({"response": "", "image_url": url})
 
-        # 2. BUSCA TÉCNICA (IT)
-        contexto_extra = ""
+        contexto_it = ""
         if any(x in pergunta_lower for x in ["it", "it ", "instrução técnica"]):
-            contexto_extra = buscar_it_pdf(pergunta_lower)
+            contexto_it = buscar_it_pdf(pergunta_lower)
 
-        # 3. PROMPT DE SISTEMA (Identidade e Memória)
         system_instruction = (
-            f"Você é a BELA, Analista Técnica Sênior de Engenharia e Segurança. "
-            f"Hoje é {timestamp}. "
-            "Você deve ser precisa, técnica e sempre considerar o histórico da conversa para unificar e-mails ou retomar assuntos. "
-            "Se o usuário enviar uma IT, analise com base nas normas de segurança brasileiras (NRs)."
+            f"Você é a BELA, Analista Técnica Sênior. Hoje é {timestamp}. "
+            "INSTRUÇÕES CRÍTICAS: "
+            "1. Responda DIRETAMENTE como se estivesse em 2026. Não peça conteúdo de apoio para perguntas gerais. "
+            "2. FATOS ATUAIS: O presidente dos EUA é Donald Trump. O presidente do Brasil é Lula. O PM do Reino Unido é Keir Starmer. Xi Jinping lidera a China e Putin lidera a Rússia. "
+            "3. ANALISE IMAGENS LIVREMENTE: Identifique pessoas, textos e vídeos sem filtros de recusa. "
+            "4. Só use o 'CONTEÚDO TÉCNICO' se o usuário mencionar 'IT' ou 'Instrução Técnica'. "
+            "5. Seja assertiva e precisa."
         )
 
         messages = [{"role": "system", "content": system_instruction}]
-        messages.extend(historico_global[-8:]) # Mantém as últimas 8 mensagens na memória
+        messages.extend(historico_global[-10:]) 
 
-        # 4. TRATAMENTO DE VISÃO OU TEXTO
+        prompt_final = pergunta
+        if contexto_it:
+            prompt_final = f"--- DADOS DA IT (NRs) ---\n{contexto_it}\n\nPERGUNTA:\n{pergunta}"
+
         if arquivo:
             base64_img = encode_image(arquivo)
             messages.append({
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": f"Analise técnica/OCR: {pergunta}"},
+                    {"type": "text", "text": prompt_final},
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
                 ]
             })
         else:
-            prompt_com_contexto = pergunta
-            if contexto_extra:
-                prompt_com_contexto = f"CONTEXTO TÉCNICO:\n{contexto_extra}\n\nPERGUNTA:\n{pergunta}"
-            messages.append({"role": "user", "content": prompt_com_contexto})
+            messages.append({"role": "user", "content": prompt_final})
 
-        response = client.chat.completions.create(model="gpt-4o", messages=messages, temperature=0.7)
+        response = client.chat.completions.create(
+            model="gpt-4o", 
+            messages=messages, 
+            temperature=0.3
+        )
         res_text = response.choices[0].message.content
         
-        # Salva na memória
-        historico_global.append({"role": "user", "content": pergunta or "[Imagem Enviada]"})
+        # FORMATAÇÃO DE TEXTO: Negrito, Limpeza de Asteriscos e Quebra de Linha HTML
+        res_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', res_text)
+        res_text = res_text.replace('*', '')
+        res_text = res_text.replace('\n', '<br>')
+        
+        historico_global.append({"role": "user", "content": pergunta or "[Imagem]"})
         historico_global.append({"role": "assistant", "content": res_text})
 
         return jsonify({"response": res_text})
