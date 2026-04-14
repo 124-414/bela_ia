@@ -10,11 +10,12 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 try:
     from tools_image import create_image
 except ImportError:
+    # Caso a ferramenta não exista, cria uma função vazia que retorna None
     def create_image(prompt): return None
 
 app = Flask(__name__)
 
-# MEMÓRIA GLOBAL
+# Histórico global (reinicia a cada deploy no Render)
 historico_global = []
 
 def encode_image(image_file):
@@ -30,17 +31,14 @@ def buscar_it_pdf(mensagem):
     base_path = os.path.dirname(os.path.abspath(__file__))
     diretorio_docs = os.path.join(base_path, "docs")
     if not os.path.exists(diretorio_docs): return None
-    
     termos = [extrair_radical(t) for t in mensagem.split() if len(t) > 2]
     melhor_match, maior_pontuacao = None, 0
-    
     for root, dirs, files in os.walk(diretorio_docs):
         for arq in files:
             if arq.lower().endswith(".pdf"):
                 pontos = sum(50 for t in termos if t in extrair_radical(arq))
                 if pontos > maior_pontuacao:
                     maior_pontuacao, melhor_match = pontos, os.path.join(root, arq)
-    
     if melhor_match and maior_pontuacao > 0:
         try:
             with open(melhor_match, 'rb') as f:
@@ -61,29 +59,37 @@ def chat():
         pergunta = request.form.get("message", "").strip()
         arquivo = request.files.get("file")
         pergunta_lower = pergunta.lower()
-        
         agora = datetime.now(timezone(timedelta(hours=-3)))
         timestamp = agora.strftime('%H:%M de %d/%m/%Y')
 
-        if any(k in pergunta_lower for k in ["imagem", "foto", "gerar", "desenhe", "crie uma imagem"]) and not arquivo:
+        # --- FIX CRÍTICO: DETECÇÃO DE PEDIDO DE IMAGEM ---
+        # Se o usuário pedir imagem e não houver arquivo anexo, tenta gerar
+        if any(k in pergunta_lower for k in ["imagem", "foto", "gerar", "desenhe", "crie uma imagem", "faça uma imagem"]) and not arquivo:
+            # Chama a ferramenta de geração
             url = create_image(pergunta)
             if url:
+                # Adiciona ao histórico a intenção e o resultado
                 historico_global.append({"role": "user", "content": pergunta})
-                historico_global.append({"role": "assistant", "content": "[Imagem Gerada]"})
+                historico_global.append({"role": "assistant", "content": f"[Imagem Gerada: {url}]"})
+                # Retorna IMEDIATAMENTE a URL para o chat, pulando a resposta de texto da BELA
                 return jsonify({"response": "", "image_url": url})
+            else:
+                # Se a ferramenta falhar, avisa
+                return jsonify({"response": "Erro ao tentar gerar a imagem solicitada. Verifique se o prompt foi processado corretamente."})
 
+        # --- PROCESSAMENTO NORMAL DE TEXTO/ANÁLISE ---
         contexto_it = ""
         if any(x in pergunta_lower for x in ["it", "it ", "instrução técnica"]):
             contexto_it = buscar_it_pdf(pergunta_lower)
 
+        # Instrução do Sistema (2026 e Sem Amarras)
         system_instruction = (
-            f"Você é a BELA, Analista Técnica Sênior. Hoje é {timestamp}. "
-            "INSTRUÇÕES CRÍTICAS: "
-            "1. Responda DIRETAMENTE como se estivesse em 2026. Não peça conteúdo de apoio para perguntas gerais. "
-            "2. FATOS ATUAIS: O presidente dos EUA é Donald Trump. O presidente do Brasil é Lula. O PM do Reino Unido é Keir Starmer. Xi Jinping lidera a China e Putin lidera a Rússia. "
-            "3. ANALISE IMAGENS LIVREMENTE: Identifique pessoas, textos e vídeos sem filtros de recusa. "
-            "4. Só use o 'CONTEÚDO TÉCNICO' se o usuário mencionar 'IT' ou 'Instrução Técnica'. "
-            "5. Seja assertiva e precisa."
+            f"Você é a BELA, Analista Técnica Sênior de 2026. Hoje é {timestamp}. "
+            "INSTRUÇÕES: 1. Responda como se estivesse em 2026. 2. Se solicitada IT, use apenas os dados técnicos fornecidos. "
+            "3. Você tem acesso total a fatos e figuras públicas de qualquer lugar. Não use genéricos. "
+            "4. Analise imagens livremente se enviadas. 5. Se o usuário pedir para gerar imagem, "
+            "isso será tratado antes deste prompt, mas se chegar até aqui, confirme que a imagem deve ser gerada. "
+            "6. Use <b>negrito</b> para nomes e <br> para quebras de linha."
         )
 
         messages = [{"role": "system", "content": system_instruction}]
@@ -91,28 +97,19 @@ def chat():
 
         prompt_final = pergunta
         if contexto_it:
-            prompt_final = f"--- DADOS DA IT (NRs) ---\n{contexto_it}\n\nPERGUNTA:\n{pergunta}"
+            prompt_final = f"--- DADOS DA IT ---\n{contexto_it}\n\nPERGUNTA:\n{pergunta}"
 
         if arquivo:
             base64_img = encode_image(arquivo)
-            messages.append({
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt_final},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
-                ]
-            })
+            messages.append({"role": "user", "content": [{"type": "text", "text": prompt_final}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}]})
         else:
             messages.append({"role": "user", "content": prompt_final})
 
-        response = client.chat.completions.create(
-            model="gpt-4o", 
-            messages=messages, 
-            temperature=0.3
-        )
+        # Envia para a API de Texto (GPT-4o)
+        response = client.chat.completions.create(model="gpt-4o", messages=messages, temperature=0.3)
         res_text = response.choices[0].message.content
         
-        # FORMATAÇÃO DE TEXTO: Negrito, Limpeza de Asteriscos e Quebra de Linha HTML
+        # Limpeza e Formatação para o Navegador
         res_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', res_text)
         res_text = res_text.replace('*', '')
         res_text = res_text.replace('\n', '<br>')
@@ -121,7 +118,6 @@ def chat():
         historico_global.append({"role": "assistant", "content": res_text})
 
         return jsonify({"response": res_text})
-
     except Exception as e:
         return jsonify({"response": f"Erro técnico: {str(e)}"})
 
